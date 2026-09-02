@@ -8,6 +8,7 @@ export interface ITeacher extends Document {
   login: string
   passwordHash: string
   photo: string
+  subjectId?: string | null
 }
 
 const TeacherSchema = new Schema<ITeacher>(
@@ -19,6 +20,7 @@ const TeacherSchema = new Schema<ITeacher>(
     login: { type: String, required: true, unique: true, index: true },
     passwordHash: { type: String, required: true },
     photo: { type: String, default: '' },
+    subjectId: { type: String, default: null },
   },
   {
     timestamps: true,

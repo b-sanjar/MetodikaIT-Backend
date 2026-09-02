@@ -1,5 +1,15 @@
 export type Role = 'admin' | 'teacher' | 'viewer'
 
+export interface SubjectDTO {
+  id: string
+  name: string
+  code?: string
+  description?: string
+  icon?: string
+  color?: string
+  order?: number
+}
+
 export interface SessionUser {
   id: string
   name: string
@@ -7,6 +17,8 @@ export interface SessionUser {
   role: Role
   title: string
   photo: string
+  subjectId?: string | null
+  subjectName?: string
 }
 
 export interface TeacherDTO {
@@ -17,6 +29,8 @@ export interface TeacherDTO {
   classIds: string[]
   login: string
   photo: string
+  subjectId?: string | null
+  subjectName?: string
 }
 
 export interface ClassGroupDTO {
@@ -53,6 +67,8 @@ export interface LessonDTO {
   videoUrl: string
   durationMin: number
   status: LessonStatus
+  subjectId?: string | null
+  subjectName?: string
 }
 
 export interface QuarterInfoDTO {

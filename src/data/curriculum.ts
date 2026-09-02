@@ -106,7 +106,7 @@ export const CURRICULUM: Record<number, string[][]> = {
   ],
   5: [
     [
-      'Informatika fani nimani o‘rganadi?',
+      'IT va dasturlash fani nimani o‘rganadi?',
       'Axborot va uning xossalari',
       'Kompyuterning asosiy qurilmalari',
       'Kiritish va chiqarish qurilmalari',

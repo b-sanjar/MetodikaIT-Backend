@@ -11,6 +11,7 @@ import { leaderboardRouter } from './routes/leaderboard.js'
 import { lessonsRouter } from './routes/lessons.js'
 import { quartersRouter } from './routes/quarters.js'
 import { studentsRouter } from './routes/students.js'
+import { subjectsRouter } from './routes/subjects.js'
 import { teachersRouter } from './routes/teachers.js'
 
 export const app = express()
@@ -62,6 +63,7 @@ app.use('/api/students', studentsRouter)
 app.use('/api/journal', journalRouter)
 app.use('/api/leaderboard', leaderboardRouter)
 app.use('/api/badges', badgesRouter)
+app.use('/api/subjects', subjectsRouter)
 
 // 404 handler
 app.use((_req, res) => {

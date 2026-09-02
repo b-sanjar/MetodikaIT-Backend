@@ -2,6 +2,7 @@ import { NextFunction, Request, Response, Router } from 'express'
 import { AuthRequest, requireAuth, requireRoles } from '../middleware/auth.js'
 import { JournalColumnModel } from '../models/JournalColumn.js'
 import { LessonModel } from '../models/Lesson.js'
+import { SubjectModel } from '../models/Subject.js'
 import {
   EQUIPMENT_BASE,
   homeworkFor,
@@ -14,11 +15,17 @@ import type { GradeSummaryDTO } from '../types/index.js'
 
 export const lessonsRouter = Router()
 
-// GET /api/lessons/summary
-lessonsRouter.get('/summary', requireAuth, async (_req: Request, res: Response, next: NextFunction) => {
+// GET /api/lessons/summary(?subjectId=...)
+lessonsRouter.get('/summary', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const { subjectId } = req.query
+    const filter: Record<string, any> = {}
+    if (subjectId) {
+      filter.subjectId = String(subjectId)
+    }
+
     const summaries: GradeSummaryDTO[] = []
-    const allLessons = await LessonModel.find({}, 'grade status')
+    const allLessons = await LessonModel.find(filter, 'grade status')
 
     for (let grade = 1; grade <= 11; grade++) {
       const gradeLessons = allLessons.filter((l) => l.grade === grade)
@@ -35,16 +42,21 @@ lessonsRouter.get('/summary', requireAuth, async (_req: Request, res: Response, 
   }
 })
 
-// GET /api/lessons?grade=X
+// GET /api/lessons?grade=X(&subjectId=...)
 lessonsRouter.get('/', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { grade } = req.query
+    const { grade, subjectId } = req.query
     if (!grade) {
       res.status(400).json({ detail: 'Sinf (grade) ko‘rsatilishi shart' })
       return
     }
 
-    const lessons = await LessonModel.find({ grade: Number(grade) }).sort({
+    const filter: Record<string, any> = { grade: Number(grade) }
+    if (subjectId) {
+      filter.subjectId = String(subjectId)
+    }
+
+    const lessons = await LessonModel.find(filter).sort({
       quarter: 1,
       order: 1,
     })
@@ -71,7 +83,7 @@ lessonsRouter.get('/:id', requireAuth, async (req: Request, res: Response, next:
 // POST /api/lessons (admin, teacher)
 lessonsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { grade, quarter, title, durationMin } = (req as any).body || {}
+    const { grade, quarter, title, durationMin, subjectId } = (req as any).body || {}
 
     const parsedGrade = Number(grade)
     const parsedQuarter = Number(quarter)
@@ -82,8 +94,23 @@ lessonsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (re
       return
     }
 
-    // Find next order in same grade & quarter
-    const lastLesson = await LessonModel.findOne({ grade: parsedGrade, quarter: parsedQuarter }).sort({ order: -1 })
+    let resolvedSubjectId: string | null = null
+    let resolvedSubjectName = ''
+
+    if (subjectId) {
+      const subject = await SubjectModel.findOne({ id: String(subjectId).trim() })
+      if (subject) {
+        resolvedSubjectId = subject.id
+        resolvedSubjectName = subject.name
+      }
+    }
+
+    // Find next order in same grade & quarter (optionally per subject)
+    const orderFilter: Record<string, any> = { grade: parsedGrade, quarter: parsedQuarter }
+    if (resolvedSubjectId) {
+      orderFilter.subjectId = resolvedSubjectId
+    }
+    const lastLesson = await LessonModel.findOne(orderFilter).sort({ order: -1 })
     const nextOrder = lastLesson ? lastLesson.order + 1 : 1
 
     const id = `l-${parsedGrade}-${parsedQuarter}-${nextOrder}-${Date.now().toString(36)}`
@@ -105,6 +132,8 @@ lessonsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (re
       videoUrl: '',
       durationMin: Number(durationMin) || 45,
       status: 'draft',
+      subjectId: resolvedSubjectId,
+      subjectName: resolvedSubjectName,
     })
 
     res.status(201).json(newLesson)
@@ -133,6 +162,7 @@ lessonsRouter.patch('/:id', requireAuth, requireRoles('admin', 'teacher'), async
       durationMin,
       status,
       videoUrl,
+      subjectId,
     } = req.body || {}
 
     if (title !== undefined) lesson.title = String(title).trim()
@@ -145,6 +175,17 @@ lessonsRouter.patch('/:id', requireAuth, requireRoles('admin', 'teacher'), async
     if (durationMin !== undefined) lesson.durationMin = Number(durationMin) || 45
     if (status !== undefined && (status === 'ready' || status === 'draft')) lesson.status = status
     if (videoUrl !== undefined) lesson.videoUrl = String(videoUrl)
+
+    if (subjectId !== undefined) {
+      if (!subjectId) {
+        lesson.subjectId = null
+        lesson.subjectName = ''
+      } else {
+        const subject = await SubjectModel.findOne({ id: String(subjectId).trim() })
+        lesson.subjectId = subject ? subject.id : null
+        lesson.subjectName = subject ? subject.name : ''
+      }
+    }
 
     await lesson.save()
     res.json(lesson)

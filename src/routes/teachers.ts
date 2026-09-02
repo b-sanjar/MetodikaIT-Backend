@@ -2,15 +2,20 @@ import bcrypt from 'bcryptjs'
 import { NextFunction, Request, Response, Router } from 'express'
 import { requireAuth, requireRoles } from '../middleware/auth.js'
 import { ClassGroupModel } from '../models/ClassGroup.js'
+import { SubjectModel } from '../models/Subject.js'
 import { TeacherModel } from '../models/Teacher.js'
 import { UserModel } from '../models/User.js'
 import type { TeacherDTO } from '../types/index.js'
 
 export const teachersRouter = Router()
 
-// Helper to assemble TeacherDTO with dynamic classIds
+// Helper to assemble TeacherDTO with dynamic classIds and subjectName
 async function toTeacherDTO(teacher: any): Promise<TeacherDTO> {
-  const classes = await ClassGroupModel.find({ teacherId: teacher.id })
+  const [classes, subject] = await Promise.all([
+    ClassGroupModel.find({ teacherId: teacher.id }),
+    teacher.subjectId ? SubjectModel.findOne({ id: teacher.subjectId }) : null,
+  ])
+
   return {
     id: teacher.id,
     name: teacher.name,
@@ -19,14 +24,19 @@ async function toTeacherDTO(teacher: any): Promise<TeacherDTO> {
     login: teacher.login,
     photo: teacher.photo || '',
     classIds: classes.map((c) => c.id),
+    subjectId: teacher.subjectId || null,
+    subjectName: subject?.name || '',
   }
 }
 
 // GET /api/teachers
 teachersRouter.get('/', requireAuth, async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const teachers = await TeacherModel.find().sort({ name: 1 })
-    const classes = await ClassGroupModel.find()
+    const [teachers, classes, subjects] = await Promise.all([
+      TeacherModel.find().sort({ name: 1 }),
+      ClassGroupModel.find(),
+      SubjectModel.find(),
+    ])
 
     const classMap = new Map<string, string[]>()
     for (const c of classes) {
@@ -37,6 +47,11 @@ teachersRouter.get('/', requireAuth, async (_req: Request, res: Response, next: 
       }
     }
 
+    const subjectMap = new Map<string, string>()
+    for (const s of subjects) {
+      subjectMap.set(s.id, s.name)
+    }
+
     const result: TeacherDTO[] = teachers.map((t) => ({
       id: t.id,
       name: t.name,
@@ -45,6 +60,8 @@ teachersRouter.get('/', requireAuth, async (_req: Request, res: Response, next: 
       login: t.login,
       photo: t.photo || '',
       classIds: classMap.get(t.id) || [],
+      subjectId: t.subjectId || null,
+      subjectName: t.subjectId ? subjectMap.get(t.subjectId) || '' : '',
     }))
 
     res.json(result)
@@ -71,7 +88,7 @@ teachersRouter.get('/:id/profile', requireAuth, async (req: Request, res: Respon
 // POST /api/teachers (admin only)
 teachersRouter.post('/', requireAuth, requireRoles('admin'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, phone, email, classIds, login, password } = req.body || {}
+    const { name, phone, email, classIds, login, password, subjectId } = req.body || {}
 
     if (!login || !String(login).trim()) {
       res.status(400).json({ detail: 'Login kiritilishi shart' })
@@ -95,6 +112,15 @@ teachersRouter.post('/', requireAuth, requireRoles('admin'), async (req: Request
       return
     }
 
+    // Check subject validity if passed
+    let validatedSubjectId: string | null = null
+    if (subjectId && typeof subjectId === 'string' && subjectId.trim()) {
+      const subject = await SubjectModel.findOne({ id: subjectId.trim() })
+      if (subject) {
+        validatedSubjectId = subject.id
+      }
+    }
+
     const teacherId = `t${Date.now()}`
     const passwordHash = await bcrypt.hash(String(password), 10)
 
@@ -106,6 +132,7 @@ teachersRouter.post('/', requireAuth, requireRoles('admin'), async (req: Request
       login: trimmedLogin,
       passwordHash,
       photo: '',
+      subjectId: validatedSubjectId,
     })
 
     if (Array.isArray(classIds) && classIds.length > 0) {
@@ -128,7 +155,7 @@ teachersRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req: Req
       return
     }
 
-    const { name, phone, email, classIds, login, password } = req.body || {}
+    const { name, phone, email, classIds, login, password, subjectId } = req.body || {}
 
     if (login && String(login).trim() !== teacher.login) {
       const trimmedLogin = String(login).trim()
@@ -148,6 +175,15 @@ teachersRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req: Req
     if (email !== undefined) teacher.email = String(email).trim()
     if (password && String(password).trim()) {
       teacher.passwordHash = await bcrypt.hash(String(password), 10)
+    }
+
+    if (subjectId !== undefined) {
+      if (!subjectId) {
+        teacher.subjectId = null
+      } else {
+        const subject = await SubjectModel.findOne({ id: String(subjectId).trim() })
+        teacher.subjectId = subject ? subject.id : null
+      }
     }
 
     await teacher.save()

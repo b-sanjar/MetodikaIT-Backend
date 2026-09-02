@@ -46,23 +46,23 @@ export const RICH_LESSONS: Record<
 > = {
   '5-1-1': {
     objective:
-      'O‘quvchilarga informatika fani, axborot tushunchasi va kompyuter xonasida xavfsizlik qoidalarini o‘rgatish; fanga qiziqish uyg‘otish.',
+      'O‘quvchilarga IT va dasturlash fani, axborot texnologiyalari tushunchasi va kompyuter xonasida xavfsizlik qoidalarini o‘rgatish; dasturlashga qiziqish uyg‘otish.',
     theory: [
-      'Informatika — axborotni to‘plash, saqlash, qayta ishlash va uzatish usullarini o‘rganuvchi fan. «Axborot» so‘zi arabcha «xabar» so‘zidan olingan bo‘lib, atrof-muhitdan olinadigan barcha ma’lumotlarni anglatadi.',
-      'Axborot turlari: matnli (kitob, xat), tasviriy (rasm, chizma), tovushli (musiqa, nutq), raqamli (baholar, telefon raqami). Biz axborotni 5 ta sezgi a’zolarimiz orqali qabul qilamiz, ularning eng kattasi — ko‘rish (80% dan ortiq).',
+      'IT va dasturlash — kompyuter texnologiyalari, dasturiy ta’minot yaratish, axborotni to‘plash, saqlash va qayta ishlash usullarini o‘rganuvchi soha.',
+      'Axborot turlari: matnli (kitob, kod), tasviriy (grafika, UI/UX), tovushli (audio), raqamli (ma’lumotlar bazasi, hisob-kitoblar). Kompyuterlar bu axborotlarni ikkilik sanoq tizimida (0 va 1) qayta ishlaydi.',
       'Kompyuter xonasida xavfsizlik: tok simlariga tegmaslik, kompyuter oldida to‘g‘ri o‘tirish (masofa 50–60 sm), xonada yugurmaslik va ovqatlanmaslik.',
-      'Yakunida «Informatika bizga nima uchun kerak?» mavzusida 3 daqiqalik erkin suhbat o‘tkaziladi va fanning yillik yo‘l xaritasi (choraklar bo‘yicha) taqdimotda ko‘rsatiladi.',
+      'Yakunida «IT va dasturlash nima uchun kerak va kelajak kasblari» mavzusida 3 daqiqalik erkin suhbat o‘tkaziladi va fanning yillik yo‘l xaritasi (choraklar bo‘yicha) taqdimotda ko‘rsatiladi.',
     ],
     practice: [
-      'Sinf ikki guruhga bo‘linadi: har bir guruh 5 ta kundalik axborot misolini topib, turini (matn, tasvir, tovush, son) aniqlaydi.',
+      'Sinf ikki guruhga bo‘linadi: har bir guruh 5 ta kundalik dasturiy ta’minot va IT misolini topib, vazifasini aniqlaydi.',
       'Ish o‘rnini to‘g‘ri tashkil qilish mashqi: har bir o‘quvchi o‘z kompyuteri oldida to‘g‘ri o‘tirish holatini ko‘rsatadi.',
       'Xavfsizlik qoidalari bo‘yicha «To‘g‘ri yoki noto‘g‘ri» o‘yini: o‘qituvchi vaziyat aytadi, o‘quvchilar kartochka ko‘taradi.',
     ],
     homework:
-      'Uyda oila a’zolaridan qanday axborot manbalaridan foydalanishini so‘rab, kamida 5 ta misolni daftarga yozib kelish. Har bir misol qarshisiga axborot turini belgilash.',
+      'Uyda oila a’zolaridan qanday dastur va ilovalardan foydalanishini so‘rab, kamida 5 ta misolni daftarga yozib kelish.',
     outcomes: [
-      'Informatika fanining o‘rganish obyektini ta’riflay oladi',
-      'Axborot turlarini kundalik misollarda ajrata oladi',
+      'IT va dasturlash sohasining asosiy tushunchalarini ta’riflay oladi',
+      'Dasturiy ta’minot va axborot turlarini kundalik misollarda ajrata oladi',
       'Kompyuter xonasida xavfsiz ishlash qoidalariga amal qiladi',
     ],
     equipment: ['Kompyuter sinfi', 'Proyektor', 'Xavfsizlik qoidalari plakati', '«To‘g‘ri/Noto‘g‘ri» kartochkalari'],

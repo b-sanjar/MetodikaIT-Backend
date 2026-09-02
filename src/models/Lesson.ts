@@ -18,6 +18,8 @@ export interface ILesson extends Document {
   videoUrl: string
   durationMin: number
   status: LessonStatus
+  subjectId?: string | null
+  subjectName?: string
 }
 
 const LessonSchema = new Schema<ILesson>(
@@ -38,6 +40,8 @@ const LessonSchema = new Schema<ILesson>(
     videoUrl: { type: String, default: '' },
     durationMin: { type: Number, default: 45 },
     status: { type: String, enum: ['ready', 'draft'], default: 'draft' },
+    subjectId: { type: String, default: null, index: true },
+    subjectName: { type: String, default: '' },
   },
   {
     timestamps: true,

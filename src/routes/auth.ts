@@ -49,7 +49,7 @@ authRouter.post('/login', async (req: Request, res: Response, next: NextFunction
           name: teacher.name,
           login: teacher.login,
           role: 'teacher',
-          title: 'Informatika o‘qituvchisi',
+          title: 'IT va dasturlash o‘qituvchisi',
           photo: teacher.photo || '',
         }
         res.json({ token, user: sessionUser })
@@ -101,7 +101,7 @@ async function handleUpdateProfile(req: AuthRequest, res: Response, next: NextFu
         name: teacher.name,
         login: teacher.login,
         role: 'teacher',
-        title: 'Informatika o‘qituvchisi',
+        title: 'IT va dasturlash o‘qituvchisi',
         photo: teacher.photo || '',
       }
       res.json(sessionUser)
