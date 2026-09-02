@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: metodikait-backend
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        sync: false
+      - key: ADMIN_NAME
+        value: Sanjar Burxonov
+      - key: ADMIN_LOGIN
+        value: burxonovsanjar21@gmail.com
+      - key: ADMIN_PASSWORD
+        value: AXL007_c3
