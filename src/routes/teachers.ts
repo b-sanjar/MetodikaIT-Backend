@@ -9,12 +9,20 @@ import type { TeacherDTO } from '../types/index.js'
 
 export const teachersRouter = Router()
 
-// Helper to assemble TeacherDTO with dynamic classIds and subjectName
+// Helper to assemble TeacherDTO with dynamic classIds and multiple subjects
 async function toTeacherDTO(teacher: any): Promise<TeacherDTO> {
-  const [classes, subject] = await Promise.all([
+  const teacherSubjectIds: string[] = Array.isArray(teacher.subjectIds) && teacher.subjectIds.length
+    ? teacher.subjectIds
+    : teacher.subjectId
+      ? [teacher.subjectId]
+      : []
+
+  const [classes, subjects] = await Promise.all([
     ClassGroupModel.find({ teacherId: teacher.id }),
-    teacher.subjectId ? SubjectModel.findOne({ id: teacher.subjectId }) : null,
+    SubjectModel.find({ id: { $in: teacherSubjectIds } }),
   ])
+
+  const subjectNames = subjects.map((s) => s.name)
 
   return {
     id: teacher.id,
@@ -24,8 +32,10 @@ async function toTeacherDTO(teacher: any): Promise<TeacherDTO> {
     login: teacher.login,
     photo: teacher.photo || '',
     classIds: classes.map((c) => c.id),
-    subjectId: teacher.subjectId || null,
-    subjectName: subject?.name || '',
+    subjectId: teacherSubjectIds[0] || null,
+    subjectIds: teacherSubjectIds,
+    subjectName: subjectNames.join(', '),
+    subjectNames,
   }
 }
 
@@ -52,17 +62,28 @@ teachersRouter.get('/', requireAuth, async (_req: Request, res: Response, next: 
       subjectMap.set(s.id, s.name)
     }
 
-    const result: TeacherDTO[] = teachers.map((t) => ({
-      id: t.id,
-      name: t.name,
-      phone: t.phone || '',
-      email: t.email || '',
-      login: t.login,
-      photo: t.photo || '',
-      classIds: classMap.get(t.id) || [],
-      subjectId: t.subjectId || null,
-      subjectName: t.subjectId ? subjectMap.get(t.subjectId) || '' : '',
-    }))
+    const result: TeacherDTO[] = teachers.map((t) => {
+      const teacherSubjectIds: string[] = Array.isArray(t.subjectIds) && t.subjectIds.length
+        ? t.subjectIds
+        : t.subjectId
+          ? [t.subjectId]
+          : []
+      const subjectNames = teacherSubjectIds.map((sid) => subjectMap.get(sid)).filter(Boolean) as string[]
+
+      return {
+        id: t.id,
+        name: t.name,
+        phone: t.phone || '',
+        email: t.email || '',
+        login: t.login,
+        photo: t.photo || '',
+        classIds: classMap.get(t.id) || [],
+        subjectId: teacherSubjectIds[0] || null,
+        subjectIds: teacherSubjectIds,
+        subjectName: subjectNames.join(', '),
+        subjectNames,
+      }
+    })
 
     res.json(result)
   } catch (err) {
@@ -88,7 +109,7 @@ teachersRouter.get('/:id/profile', requireAuth, async (req: Request, res: Respon
 // POST /api/teachers (admin only)
 teachersRouter.post('/', requireAuth, requireRoles('admin'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, phone, email, classIds, login, password, subjectId } = req.body || {}
+    const { name, phone, email, classIds, login, password, subjectId, subjectIds } = req.body || {}
 
     if (!login || !String(login).trim()) {
       res.status(400).json({ detail: 'Login kiritilishi shart' })
@@ -112,14 +133,17 @@ teachersRouter.post('/', requireAuth, requireRoles('admin'), async (req: Request
       return
     }
 
-    // Check subject validity if passed
-    let validatedSubjectId: string | null = null
-    if (subjectId && typeof subjectId === 'string' && subjectId.trim()) {
-      const subject = await SubjectModel.findOne({ id: subjectId.trim() })
-      if (subject) {
-        validatedSubjectId = subject.id
-      }
+    // Resolve subjectIds array
+    let rawSubjectIds: string[] = []
+    if (Array.isArray(subjectIds) && subjectIds.length > 0) {
+      rawSubjectIds = subjectIds.map((s) => String(s).trim()).filter(Boolean)
+    } else if (subjectId && typeof subjectId === 'string' && subjectId.trim()) {
+      rawSubjectIds = [subjectId.trim()]
     }
+
+    // Validate subject IDs in DB
+    const validSubjects = await SubjectModel.find({ id: { $in: rawSubjectIds } })
+    const validatedIds = validSubjects.map((s) => s.id)
 
     const teacherId = `t${Date.now()}`
     const passwordHash = await bcrypt.hash(String(password), 10)
@@ -132,7 +156,8 @@ teachersRouter.post('/', requireAuth, requireRoles('admin'), async (req: Request
       login: trimmedLogin,
       passwordHash,
       photo: '',
-      subjectId: validatedSubjectId,
+      subjectId: validatedIds[0] || null,
+      subjectIds: validatedIds,
     })
 
     if (Array.isArray(classIds) && classIds.length > 0) {
@@ -155,7 +180,7 @@ teachersRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req: Req
       return
     }
 
-    const { name, phone, email, classIds, login, password, subjectId } = req.body || {}
+    const { name, phone, email, classIds, login, password, subjectId, subjectIds } = req.body || {}
 
     if (login && String(login).trim() !== teacher.login) {
       const trimmedLogin = String(login).trim()
@@ -177,13 +202,19 @@ teachersRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req: Req
       teacher.passwordHash = await bcrypt.hash(String(password), 10)
     }
 
-    if (subjectId !== undefined) {
-      if (!subjectId) {
-        teacher.subjectId = null
-      } else {
-        const subject = await SubjectModel.findOne({ id: String(subjectId).trim() })
-        teacher.subjectId = subject ? subject.id : null
+    if (subjectIds !== undefined || subjectId !== undefined) {
+      let rawSubjectIds: string[] = []
+      if (Array.isArray(subjectIds)) {
+        rawSubjectIds = subjectIds.map((s) => String(s).trim()).filter(Boolean)
+      } else if (subjectId !== undefined) {
+        rawSubjectIds = subjectId ? [String(subjectId).trim()] : []
       }
+
+      const validSubjects = await SubjectModel.find({ id: { $in: rawSubjectIds } })
+      const validatedIds = validSubjects.map((s) => s.id)
+
+      teacher.subjectIds = validatedIds
+      teacher.subjectId = validatedIds[0] || null
     }
 
     await teacher.save()

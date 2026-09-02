@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { NextFunction, Request, Response, Router } from 'express'
 import { AuthRequest, generateToken, requireAuth } from '../middleware/auth.js'
+import { SubjectModel } from '../models/Subject.js'
 import { TeacherModel } from '../models/Teacher.js'
 import { UserModel } from '../models/User.js'
 import type { SessionUser } from '../types/index.js'
@@ -44,13 +45,27 @@ authRouter.post('/login', async (req: Request, res: Response, next: NextFunction
       const match = await bcrypt.compare(String(password), teacher.passwordHash)
       if (match) {
         const token = generateToken({ sub: teacher.id, kind: 'teacher', role: 'teacher' })
+        const teacherSubjectIds: string[] = Array.isArray(teacher.subjectIds) && teacher.subjectIds.length
+          ? teacher.subjectIds
+          : teacher.subjectId
+            ? [teacher.subjectId]
+            : []
+
+        const subjects = await SubjectModel.find({ id: { $in: teacherSubjectIds } })
+        const subjectNames = subjects.map((s) => s.name)
+        const title = subjectNames.length ? `${subjectNames.join(', ')} o‘qituvchisi` : 'Fan o‘qituvchisi'
+
         const sessionUser: SessionUser = {
           id: teacher.id,
           name: teacher.name,
           login: teacher.login,
           role: 'teacher',
-          title: 'IT va dasturlash o‘qituvchisi',
+          title,
           photo: teacher.photo || '',
+          subjectId: teacherSubjectIds[0] || null,
+          subjectIds: teacherSubjectIds,
+          subjectName: subjectNames.join(', '),
+          subjectNames,
         }
         res.json({ token, user: sessionUser })
         return

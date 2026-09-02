@@ -3,6 +3,7 @@ import { AuthRequest, requireAuth, requireRoles } from '../middleware/auth.js'
 import { JournalColumnModel } from '../models/JournalColumn.js'
 import { LessonModel } from '../models/Lesson.js'
 import { SubjectModel } from '../models/Subject.js'
+import { TeacherModel } from '../models/Teacher.js'
 import {
   EQUIPMENT_BASE,
   homeworkFor,
@@ -102,6 +103,23 @@ lessonsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (re
       if (subject) {
         resolvedSubjectId = subject.id
         resolvedSubjectName = subject.name
+      }
+    }
+
+    // If author is a teacher, verify they are assigned to this subject
+    if (req.user!.role === 'teacher') {
+      const teacher = await TeacherModel.findOne({ id: req.user!.id })
+      const teacherSubjectIds: string[] = Array.isArray(teacher?.subjectIds) && teacher?.subjectIds.length
+        ? teacher.subjectIds
+        : teacher?.subjectId
+          ? [teacher.subjectId]
+          : []
+
+      if (!resolvedSubjectId || !teacherSubjectIds.includes(resolvedSubjectId)) {
+        res.status(403).json({
+          detail: 'Siz faqat o‘zingizga biriktirilgan fan(lar) bo‘yicha dars qo‘sha olasiz',
+        })
+        return
       }
     }
 

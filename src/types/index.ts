@@ -18,7 +18,9 @@ export interface SessionUser {
   title: string
   photo: string
   subjectId?: string | null
+  subjectIds?: string[]
   subjectName?: string
+  subjectNames?: string[]
 }
 
 export interface TeacherDTO {
@@ -30,7 +32,9 @@ export interface TeacherDTO {
   login: string
   photo: string
   subjectId?: string | null
+  subjectIds: string[]
   subjectName?: string
+  subjectNames?: string[]
 }
 
 export interface ClassGroupDTO {

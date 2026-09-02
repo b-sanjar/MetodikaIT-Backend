@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import jwt from 'jsonwebtoken'
+import { SubjectModel } from '../models/Subject.js'
 import { TeacherModel } from '../models/Teacher.js'
 import { UserModel } from '../models/User.js'
 import type { Role, SessionUser } from '../types/index.js'
@@ -34,13 +35,28 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
         res.status(401).json({ detail: 'Foydalanuvchi topilmadi' })
         return
       }
+
+      const teacherSubjectIds: string[] = Array.isArray(teacher.subjectIds) && teacher.subjectIds.length
+        ? teacher.subjectIds
+        : teacher.subjectId
+          ? [teacher.subjectId]
+          : []
+
+      const subjects = await SubjectModel.find({ id: { $in: teacherSubjectIds } })
+      const subjectNames = subjects.map((s) => s.name)
+      const title = subjectNames.length ? `${subjectNames.join(', ')} o‘qituvchisi` : 'Fan o‘qituvchisi'
+
       req.user = {
         id: teacher.id,
         name: teacher.name,
         login: teacher.login,
         role: 'teacher',
-        title: 'IT va dasturlash o‘qituvchisi',
+        title,
         photo: teacher.photo || '',
+        subjectId: teacherSubjectIds[0] || null,
+        subjectIds: teacherSubjectIds,
+        subjectName: subjectNames.join(', '),
+        subjectNames,
         kind: 'teacher',
       }
     } else {
