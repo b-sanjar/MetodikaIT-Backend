@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs'
-import { Router } from 'express'
+import { NextFunction, Request, Response, Router } from 'express'
 import { AuthRequest, generateToken, requireAuth } from '../middleware/auth.js'
 import { TeacherModel } from '../models/Teacher.js'
 import { UserModel } from '../models/User.js'
@@ -9,7 +9,7 @@ export const authRouter = Router()
 export const profileRouter = Router()
 
 // POST /api/auth/login
-authRouter.post('/login', async (req, res, next) => {
+authRouter.post('/login', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { login, password } = req.body || {}
     if (!login || !password) {
@@ -64,17 +64,17 @@ authRouter.post('/login', async (req, res, next) => {
 })
 
 // GET /api/auth/me
-authRouter.get('/me', requireAuth, (req: AuthRequest, res) => {
+authRouter.get('/me', requireAuth, (req: AuthRequest, res: Response) => {
   res.json(req.user)
 })
 
 // POST /api/auth/logout
-authRouter.post('/logout', (_req, res) => {
+authRouter.post('/logout', (_req: Request, res: Response) => {
   res.status(204).send()
 })
 
 // PATCH /api/profile
-async function handleUpdateProfile(req: AuthRequest, res: any, next: any) {
+async function handleUpdateProfile(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const { name, phone, email, photo, password } = req.body || {}
     const currentUser = req.user!

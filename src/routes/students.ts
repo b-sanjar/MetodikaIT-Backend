@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { NextFunction, Request, Response, Router } from 'express'
 import { requireAuth, requireRoles } from '../middleware/auth.js'
 import { JournalEntryModel } from '../models/JournalEntry.js'
 import { PointsEventModel } from '../models/PointsEvent.js'
@@ -11,7 +11,7 @@ function todayISO(): string {
 }
 
 // GET /api/students(?classId=...)
-studentsRouter.get('/', requireAuth, async (req, res, next) => {
+studentsRouter.get('/', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { classId } = req.query
     const filter = classId ? { classId: String(classId) } : {}
@@ -23,7 +23,7 @@ studentsRouter.get('/', requireAuth, async (req, res, next) => {
 })
 
 // POST /api/students (admin, teacher)
-studentsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (req, res, next) => {
+studentsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, classId, points, badges } = req.body || {}
 
@@ -52,7 +52,7 @@ studentsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (r
 })
 
 // PATCH /api/students/:id (admin, teacher)
-studentsRouter.patch('/:id', requireAuth, requireRoles('admin', 'teacher'), async (req, res, next) => {
+studentsRouter.patch('/:id', requireAuth, requireRoles('admin', 'teacher'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const student = await StudentModel.findOne({ id: req.params.id })
     if (!student) {
@@ -75,7 +75,7 @@ studentsRouter.patch('/:id', requireAuth, requireRoles('admin', 'teacher'), asyn
 })
 
 // DELETE /api/students/:id (admin, teacher)
-studentsRouter.delete('/:id', requireAuth, requireRoles('admin', 'teacher'), async (req, res, next) => {
+studentsRouter.delete('/:id', requireAuth, requireRoles('admin', 'teacher'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const student = await StudentModel.findOne({ id: req.params.id })
     if (!student) {
@@ -95,7 +95,7 @@ studentsRouter.delete('/:id', requireAuth, requireRoles('admin', 'teacher'), asy
 })
 
 // POST /api/students/:id/points (admin, teacher)
-studentsRouter.post('/:id/points', requireAuth, requireRoles('admin', 'teacher'), async (req, res, next) => {
+studentsRouter.post('/:id/points', requireAuth, requireRoles('admin', 'teacher'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const student = await StudentModel.findOne({ id: req.params.id })
     if (!student) {
@@ -131,7 +131,7 @@ studentsRouter.post('/:id/points', requireAuth, requireRoles('admin', 'teacher')
 })
 
 // GET /api/students/:id/points-history?limit=20
-studentsRouter.get('/:id/points-history', requireAuth, async (req, res, next) => {
+studentsRouter.get('/:id/points-history', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20))
     const events = await PointsEventModel.find({ studentId: req.params.id })
@@ -145,7 +145,7 @@ studentsRouter.get('/:id/points-history', requireAuth, async (req, res, next) =>
 })
 
 // GET /api/students/:id/journal
-studentsRouter.get('/:id/journal', requireAuth, async (req, res, next) => {
+studentsRouter.get('/:id/journal', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const entries = await JournalEntryModel.find({ studentId: req.params.id }).sort({ date: 1 })
     res.json(entries)

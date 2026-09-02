@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { NextFunction, Request, Response, Router } from 'express'
 import { AuthRequest, requireAuth, requireRoles } from '../middleware/auth.js'
 import { ClassGroupModel } from '../models/ClassGroup.js'
 import { JournalColumnModel } from '../models/JournalColumn.js'
@@ -10,7 +10,7 @@ import type { Attendance } from '../types/index.js'
 export const journalRouter = Router()
 
 // GET /api/journal?classId=X
-journalRouter.get('/', requireAuth, async (req, res, next) => {
+journalRouter.get('/', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { classId } = req.query
     if (!classId) {
@@ -26,7 +26,7 @@ journalRouter.get('/', requireAuth, async (req, res, next) => {
 })
 
 // GET /api/journal/columns?classId=X
-journalRouter.get('/columns', requireAuth, async (req, res, next) => {
+journalRouter.get('/columns', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { classId } = req.query
     if (!classId) {
@@ -42,9 +42,9 @@ journalRouter.get('/columns', requireAuth, async (req, res, next) => {
 })
 
 // POST /api/journal/columns (admin; teacher only for own class)
-journalRouter.post('/columns', requireAuth, requireRoles('admin', 'teacher'), async (req: AuthRequest, res, next) => {
+journalRouter.post('/columns', requireAuth, requireRoles('admin', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { classId, date, lessonId } = req.body || {}
+    const { classId, date, lessonId } = (req as any).body || {}
     if (!classId || !date || !lessonId) {
       res.status(400).json({ detail: 'Sinf, sana va dars tanlanishi shart' })
       return
@@ -83,9 +83,9 @@ journalRouter.post('/columns', requireAuth, requireRoles('admin', 'teacher'), as
 })
 
 // PUT /api/journal/cell (admin; teacher only for own class) — upsert
-journalRouter.put('/cell', requireAuth, requireRoles('admin', 'teacher'), async (req: AuthRequest, res, next) => {
+journalRouter.put('/cell', requireAuth, requireRoles('admin', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { classId, studentId, date, grade, attendance } = req.body || {}
+    const { classId, studentId, date, grade, attendance } = (req as any).body || {}
 
     if (!classId || !studentId || !date) {
       res.status(400).json({ detail: 'Sinf, o‘quvchi va sana ko‘rsatilishi shart' })

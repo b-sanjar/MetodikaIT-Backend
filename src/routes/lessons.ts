@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { NextFunction, Request, Response, Router } from 'express'
 import { AuthRequest, requireAuth, requireRoles } from '../middleware/auth.js'
 import { JournalColumnModel } from '../models/JournalColumn.js'
 import { LessonModel } from '../models/Lesson.js'
@@ -15,7 +15,7 @@ import type { GradeSummaryDTO } from '../types/index.js'
 export const lessonsRouter = Router()
 
 // GET /api/lessons/summary
-lessonsRouter.get('/summary', requireAuth, async (_req, res, next) => {
+lessonsRouter.get('/summary', requireAuth, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const summaries: GradeSummaryDTO[] = []
     const allLessons = await LessonModel.find({}, 'grade status')
@@ -36,7 +36,7 @@ lessonsRouter.get('/summary', requireAuth, async (_req, res, next) => {
 })
 
 // GET /api/lessons?grade=X
-lessonsRouter.get('/', requireAuth, async (req, res, next) => {
+lessonsRouter.get('/', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { grade } = req.query
     if (!grade) {
@@ -55,7 +55,7 @@ lessonsRouter.get('/', requireAuth, async (req, res, next) => {
 })
 
 // GET /api/lessons/:id
-lessonsRouter.get('/:id', requireAuth, async (req, res, next) => {
+lessonsRouter.get('/:id', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const lesson = await LessonModel.findOne({ id: req.params.id })
     if (!lesson) {
@@ -69,9 +69,9 @@ lessonsRouter.get('/:id', requireAuth, async (req, res, next) => {
 })
 
 // POST /api/lessons (admin, teacher)
-lessonsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (req: AuthRequest, res, next) => {
+lessonsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { grade, quarter, title, durationMin } = req.body || {}
+    const { grade, quarter, title, durationMin } = (req as any).body || {}
 
     const parsedGrade = Number(grade)
     const parsedQuarter = Number(quarter)
@@ -114,7 +114,7 @@ lessonsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (re
 })
 
 // PATCH /api/lessons/:id (admin, teacher)
-lessonsRouter.patch('/:id', requireAuth, requireRoles('admin', 'teacher'), async (req, res, next) => {
+lessonsRouter.patch('/:id', requireAuth, requireRoles('admin', 'teacher'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const lesson = await LessonModel.findOne({ id: req.params.id })
     if (!lesson) {
@@ -154,9 +154,10 @@ lessonsRouter.patch('/:id', requireAuth, requireRoles('admin', 'teacher'), async
 })
 
 // DELETE /api/lessons/:id (admin or author)
-lessonsRouter.delete('/:id', requireAuth, async (req: AuthRequest, res, next) => {
+lessonsRouter.delete('/:id', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const lesson = await LessonModel.findOne({ id: req.params.id })
+    const lessonId = (req as any).params?.id
+    const lesson = await LessonModel.findOne({ id: lessonId })
     if (!lesson) {
       res.status(404).json({ detail: 'Dars topilmadi' })
       return

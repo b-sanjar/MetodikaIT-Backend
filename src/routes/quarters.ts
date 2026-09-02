@@ -1,11 +1,11 @@
-import { Router } from 'express'
+import { NextFunction, Request, Response, Router } from 'express'
 import { requireAuth } from '../middleware/auth.js'
 import { QuarterInfoModel } from '../models/QuarterInfo.js'
 
 export const quartersRouter = Router()
 
 // GET /api/quarters?grade=X
-quartersRouter.get('/', requireAuth, async (req, res, next) => {
+quartersRouter.get('/', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { grade } = req.query
     if (!grade) {

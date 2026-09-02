@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { NextFunction, Request, Response, Router } from 'express'
 import { requireAuth } from '../middleware/auth.js'
 import { PointsEventModel } from '../models/PointsEvent.js'
 import { StudentModel } from '../models/Student.js'
@@ -24,7 +24,7 @@ function getCutoffDate(period: LeaderboardPeriod): string | null {
 }
 
 // GET /api/leaderboard?period=...&classId=...
-leaderboardRouter.get('/', requireAuth, async (req, res, next) => {
+leaderboardRouter.get('/', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const period = (req.query.period as LeaderboardPeriod) || 'all'
     const { classId } = req.query

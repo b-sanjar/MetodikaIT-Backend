@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs'
-import { Router } from 'express'
+import { NextFunction, Request, Response, Router } from 'express'
 import { requireAuth, requireRoles } from '../middleware/auth.js'
 import { ClassGroupModel } from '../models/ClassGroup.js'
 import { TeacherModel } from '../models/Teacher.js'
@@ -23,7 +23,7 @@ async function toTeacherDTO(teacher: any): Promise<TeacherDTO> {
 }
 
 // GET /api/teachers
-teachersRouter.get('/', requireAuth, async (_req, res, next) => {
+teachersRouter.get('/', requireAuth, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const teachers = await TeacherModel.find().sort({ name: 1 })
     const classes = await ClassGroupModel.find()
@@ -54,7 +54,7 @@ teachersRouter.get('/', requireAuth, async (_req, res, next) => {
 })
 
 // GET /api/teachers/:id/profile
-teachersRouter.get('/:id/profile', requireAuth, async (req, res, next) => {
+teachersRouter.get('/:id/profile', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const teacher = await TeacherModel.findOne({ id: req.params.id })
     if (!teacher) {
@@ -69,7 +69,7 @@ teachersRouter.get('/:id/profile', requireAuth, async (req, res, next) => {
 })
 
 // POST /api/teachers (admin only)
-teachersRouter.post('/', requireAuth, requireRoles('admin'), async (req, res, next) => {
+teachersRouter.post('/', requireAuth, requireRoles('admin'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, phone, email, classIds, login, password } = req.body || {}
 
@@ -120,7 +120,7 @@ teachersRouter.post('/', requireAuth, requireRoles('admin'), async (req, res, ne
 })
 
 // PATCH /api/teachers/:id (admin only)
-teachersRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req, res, next) => {
+teachersRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const teacher = await TeacherModel.findOne({ id: req.params.id })
     if (!teacher) {
@@ -173,7 +173,7 @@ teachersRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req, res
 })
 
 // DELETE /api/teachers/:id (admin only)
-teachersRouter.delete('/:id', requireAuth, requireRoles('admin'), async (req, res, next) => {
+teachersRouter.delete('/:id', requireAuth, requireRoles('admin'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const teacher = await TeacherModel.findOne({ id: req.params.id })
     if (!teacher) {

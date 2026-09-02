@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { NextFunction, Request, Response, Router } from 'express'
 import { requireAuth, requireRoles } from '../middleware/auth.js'
 import { ClassGroupModel } from '../models/ClassGroup.js'
 import { JournalColumnModel } from '../models/JournalColumn.js'
@@ -8,7 +8,7 @@ import { StudentModel } from '../models/Student.js'
 export const classesRouter = Router()
 
 // GET /api/classes
-classesRouter.get('/', requireAuth, async (_req, res, next) => {
+classesRouter.get('/', requireAuth, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const classes = await ClassGroupModel.find().sort({ grade: 1, letter: 1 })
     res.json(classes)
@@ -18,7 +18,7 @@ classesRouter.get('/', requireAuth, async (_req, res, next) => {
 })
 
 // POST /api/classes (admin only)
-classesRouter.post('/', requireAuth, requireRoles('admin'), async (req, res, next) => {
+classesRouter.post('/', requireAuth, requireRoles('admin'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { grade, letter, teacherId } = req.body || {}
 
@@ -52,7 +52,7 @@ classesRouter.post('/', requireAuth, requireRoles('admin'), async (req, res, nex
 })
 
 // PATCH /api/classes/:id (admin only)
-classesRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req, res, next) => {
+classesRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const klass = await ClassGroupModel.findOne({ id: req.params.id })
     if (!klass) {
@@ -91,7 +91,7 @@ classesRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req, res,
 })
 
 // DELETE /api/classes/:id (admin only)
-classesRouter.delete('/:id', requireAuth, requireRoles('admin'), async (req, res, next) => {
+classesRouter.delete('/:id', requireAuth, requireRoles('admin'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const klass = await ClassGroupModel.findOne({ id: req.params.id })
     if (!klass) {
