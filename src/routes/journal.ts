@@ -3,6 +3,7 @@ import { AuthRequest, requireAuth, requireRoles } from '../middleware/auth.js'
 import { ClassGroupModel } from '../models/ClassGroup.js'
 import { JournalColumnModel } from '../models/JournalColumn.js'
 import { JournalEntryModel } from '../models/JournalEntry.js'
+import { LessonModel } from '../models/Lesson.js'
 import { StudentModel } from '../models/Student.js'
 import { updateJournalCellPoints } from '../services/pointsService.js'
 import type { Attendance } from '../types/index.js'
@@ -57,8 +58,14 @@ journalRouter.post('/columns', requireAuth, requireRoles('admin', 'teacher'), as
     }
 
     const user = req.user!
-    if (user.role !== 'admin' && klass.teacherId !== user.id) {
-      res.status(403).json({ detail: 'Bu sinfda baholash huquqingiz yo‘q' })
+    const canTeachClass =
+      user.role === 'admin' ||
+      klass.teacherId === user.id ||
+      klass.tutorId === user.id ||
+      (user.classIds || []).includes(klass.id)
+
+    if (!canTeachClass) {
+      res.status(403).json({ detail: 'Bu sinfda dars o‘tish va baholash huquqingiz yo‘q' })
       return
     }
 
@@ -82,7 +89,7 @@ journalRouter.post('/columns', requireAuth, requireRoles('admin', 'teacher'), as
   }
 })
 
-// PUT /api/journal/cell (admin; teacher only for own class) — upsert
+// PUT /api/journal/cell (admin, class teacher, tutor, or assigned subject teacher) — upsert
 journalRouter.put('/cell', requireAuth, requireRoles('admin', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { classId, studentId, date, grade, attendance } = (req as any).body || {}
@@ -99,8 +106,14 @@ journalRouter.put('/cell', requireAuth, requireRoles('admin', 'teacher'), async 
     }
 
     const user = req.user!
-    if (user.role !== 'admin' && klass.teacherId !== user.id) {
-      res.status(403).json({ detail: 'Bu sinfda baholash huquqingiz yo‘q' })
+    const canTeachClass =
+      user.role === 'admin' ||
+      klass.teacherId === user.id ||
+      klass.tutorId === user.id ||
+      (user.classIds || []).includes(klass.id)
+
+    if (!canTeachClass) {
+      res.status(403).json({ detail: 'Bu sinfda dars o‘tish va baholash huquqingiz yo‘q' })
       return
     }
 
@@ -127,14 +140,24 @@ journalRouter.put('/cell', requireAuth, requireRoles('admin', 'teacher'), async 
       targetGrade = existing?.grade ?? null
     }
 
-    // Recalculate points delta, update student, check auto-badges, log points event
+    // Resolve subjectId from the lesson conducted on this date
+    const column = await JournalColumnModel.findOne({ classId: klass.id, date: String(date) })
+    let subjectId: string | null = null
+    if (column) {
+      const lesson = await LessonModel.findOne({ id: column.lessonId })
+      subjectId = lesson?.subjectId || null
+    }
+
+    // Recalculate points delta, update student, check auto-badges, log points event with subjectId
     await updateJournalCellPoints(
       student,
       String(date),
       targetGrade,
       targetAttendance,
       existing?.grade,
-      existing?.attendance
+      existing?.attendance,
+      subjectId,
+      klass.id
     )
 
     const entryId = existing?.id || `j-${student.id}-${date}`

@@ -23,30 +23,48 @@ function getCutoffDate(period: LeaderboardPeriod): string | null {
   return null
 }
 
-// GET /api/leaderboard?period=...&classId=...
+// GET /api/leaderboard?period=...&classId=...&subjectId=...
 leaderboardRouter.get('/', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const period = (req.query.period as LeaderboardPeriod) || 'all'
-    const { classId } = req.query
+    const { classId, subjectId } = req.query
 
-    const studentFilter = classId ? { classId: String(classId) } : {}
+    const studentFilter: Record<string, any> = {}
+    if (classId && String(classId) !== 'all') {
+      studentFilter.classId = String(classId)
+    }
+
     const students = await StudentModel.find(studentFilter)
+    const studentIds = students.map((s) => s.id)
 
     let entries: { studentId: string; points: number }[] = []
 
-    if (period === 'all') {
+    const hasSubjectFilter = subjectId && String(subjectId) !== 'all'
+    const hasPeriodFilter = period !== 'all'
+
+    if (!hasSubjectFilter && !hasPeriodFilter) {
+      // Overall points
       entries = students.map((s) => ({
         studentId: s.id,
         points: s.points,
       }))
     } else {
-      const cutoff = getCutoffDate(period)
-      const studentIds = students.map((s) => s.id)
-
-      const events = await PointsEventModel.find({
+      const eventFilter: Record<string, any> = {
         studentId: { $in: studentIds },
-        date: { $gte: cutoff },
-      })
+      }
+
+      if (hasPeriodFilter) {
+        const cutoff = getCutoffDate(period)
+        if (cutoff) {
+          eventFilter.date = { $gte: cutoff }
+        }
+      }
+
+      if (hasSubjectFilter) {
+        eventFilter.subjectId = String(subjectId)
+      }
+
+      const events = await PointsEventModel.find(eventFilter)
 
       const deltasMap = new Map<string, number>()
       for (const ev of events) {

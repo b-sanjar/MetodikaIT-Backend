@@ -10,6 +10,7 @@ export interface ITeacher extends Document {
   photo: string
   subjectId?: string | null
   subjectIds: string[]
+  classIds: string[]
 }
 
 const TeacherSchema = new Schema<ITeacher>(
@@ -23,6 +24,7 @@ const TeacherSchema = new Schema<ITeacher>(
     photo: { type: String, default: '' },
     subjectId: { type: String, default: null },
     subjectIds: { type: [String], default: [] },
+    classIds: { type: [String], default: [] },
   },
   {
     timestamps: true,

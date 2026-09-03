@@ -1,17 +1,49 @@
 import { NextFunction, Request, Response, Router } from 'express'
-import { requireAuth, requireRoles } from '../middleware/auth.js'
+import { AuthRequest, requireAuth, requireRoles } from '../middleware/auth.js'
 import { ClassGroupModel } from '../models/ClassGroup.js'
 import { JournalColumnModel } from '../models/JournalColumn.js'
 import { JournalEntryModel } from '../models/JournalEntry.js'
 import { StudentModel } from '../models/Student.js'
+import { TeacherModel } from '../models/Teacher.js'
+import type { ClassGroupDTO } from '../types/index.js'
 
 export const classesRouter = Router()
 
-// GET /api/classes
-classesRouter.get('/', requireAuth, async (_req: Request, res: Response, next: NextFunction) => {
+// GET /api/classes(?myOnly=true)
+classesRouter.get('/', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const classes = await ClassGroupModel.find().sort({ grade: 1, letter: 1 })
-    res.json(classes)
+    const [classes, teachers] = await Promise.all([
+      ClassGroupModel.find().sort({ grade: 1, letter: 1 }),
+      TeacherModel.find(),
+    ])
+
+    const teacherMap = new Map<string, string>()
+    for (const t of teachers) {
+      teacherMap.set(t.id, t.name)
+    }
+
+    let result: ClassGroupDTO[] = classes.map((c) => ({
+      id: c.id,
+      grade: c.grade,
+      letter: c.letter,
+      teacherId: c.teacherId || null,
+      tutorId: c.tutorId || null,
+      teacherName: c.teacherId ? teacherMap.get(c.teacherId) || '' : '',
+      tutorName: c.tutorId ? teacherMap.get(c.tutorId) || '' : '',
+    }))
+
+    // Filter for teachers if myOnly=true is requested
+    if (req.query.myOnly === 'true' && req.user && req.user.role === 'teacher') {
+      const userClassIds = req.user.classIds || []
+      result = result.filter(
+        (c) =>
+          c.teacherId === req.user!.id ||
+          c.tutorId === req.user!.id ||
+          userClassIds.includes(c.id)
+      )
+    }
+
+    res.json(result)
   } catch (err) {
     next(err)
   }
@@ -20,7 +52,7 @@ classesRouter.get('/', requireAuth, async (_req: Request, res: Response, next: N
 // POST /api/classes (admin only)
 classesRouter.post('/', requireAuth, requireRoles('admin'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { grade, letter, teacherId } = req.body || {}
+    const { grade, letter, teacherId, tutorId } = req.body || {}
 
     const parsedGrade = Number(grade)
     const upperLetter = String(letter || '').trim().toUpperCase()
@@ -43,9 +75,23 @@ classesRouter.post('/', requireAuth, requireRoles('admin'), async (req: Request,
       grade: parsedGrade,
       letter: upperLetter,
       teacherId: teacherId || null,
+      tutorId: tutorId || null,
     })
 
-    res.status(201).json(newClass)
+    const [teachers] = await Promise.all([TeacherModel.find()])
+    const teacherMap = new Map(teachers.map((t) => [t.id, t.name]))
+
+    const dto: ClassGroupDTO = {
+      id: newClass.id,
+      grade: newClass.grade,
+      letter: newClass.letter,
+      teacherId: newClass.teacherId,
+      tutorId: newClass.tutorId,
+      teacherName: newClass.teacherId ? teacherMap.get(newClass.teacherId) || '' : '',
+      tutorName: newClass.tutorId ? teacherMap.get(newClass.tutorId) || '' : '',
+    }
+
+    res.status(201).json(dto)
   } catch (err) {
     next(err)
   }
@@ -60,7 +106,7 @@ classesRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req: Requ
       return
     }
 
-    const { grade, letter, teacherId } = req.body || {}
+    const { grade, letter, teacherId, tutorId } = req.body || {}
 
     const newGrade = grade !== undefined ? Number(grade) : klass.grade
     const newLetter = letter !== undefined ? String(letter).trim().toUpperCase() : klass.letter
@@ -82,9 +128,26 @@ classesRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req: Requ
     if (teacherId !== undefined) {
       klass.teacherId = teacherId || null
     }
+    if (tutorId !== undefined) {
+      klass.tutorId = tutorId || null
+    }
 
     await klass.save()
-    res.json(klass)
+
+    const teachers = await TeacherModel.find()
+    const teacherMap = new Map(teachers.map((t) => [t.id, t.name]))
+
+    const dto: ClassGroupDTO = {
+      id: klass.id,
+      grade: klass.grade,
+      letter: klass.letter,
+      teacherId: klass.teacherId,
+      tutorId: klass.tutorId,
+      teacherName: klass.teacherId ? teacherMap.get(klass.teacherId) || '' : '',
+      tutorName: klass.tutorId ? teacherMap.get(klass.tutorId) || '' : '',
+    }
+
+    res.json(dto)
   } catch (err) {
     next(err)
   }
@@ -99,16 +162,14 @@ classesRouter.delete('/:id', requireAuth, requireRoles('admin'), async (req: Req
       return
     }
 
-    const studentsCount = await StudentModel.countDocuments({ classId: klass.id })
-    if (studentsCount > 0) {
-      res.status(400).json({ detail: 'Bu sinfda o‘quvchilar bor — avval ularni boshqa sinfga o‘tkazing' })
-      return
-    }
-
-    // Cascade delete journal columns and entries for this class
-    await JournalColumnModel.deleteMany({ classId: klass.id })
-    await JournalEntryModel.deleteMany({ classId: klass.id })
-    await ClassGroupModel.deleteOne({ id: klass.id })
+    // Cascade delete: clean up students, journal columns, and journal entries
+    await Promise.all([
+      StudentModel.deleteMany({ classId: klass.id }),
+      JournalColumnModel.deleteMany({ classId: klass.id }),
+      JournalEntryModel.deleteMany({ classId: klass.id }),
+      TeacherModel.updateMany({ classIds: klass.id }, { $pull: { classIds: klass.id } }),
+      ClassGroupModel.deleteOne({ id: klass.id }),
+    ])
 
     res.status(204).send()
   } catch (err) {

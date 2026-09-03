@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { NextFunction, Request, Response, Router } from 'express'
 import { AuthRequest, generateToken, requireAuth } from '../middleware/auth.js'
+import { ClassGroupModel } from '../models/ClassGroup.js'
 import { SubjectModel } from '../models/Subject.js'
 import { TeacherModel } from '../models/Teacher.js'
 import { UserModel } from '../models/User.js'
@@ -51,7 +52,14 @@ authRouter.post('/login', async (req: Request, res: Response, next: NextFunction
             ? [teacher.subjectId]
             : []
 
-        const subjects = await SubjectModel.find({ id: { $in: teacherSubjectIds } })
+        const directClassIds: string[] = Array.isArray(teacher.classIds) ? teacher.classIds : []
+        const [subjects, ledClasses] = await Promise.all([
+          SubjectModel.find({ id: { $in: teacherSubjectIds } }),
+          ClassGroupModel.find({
+            $or: [{ teacherId: teacher.id }, { tutorId: teacher.id }],
+          }),
+        ])
+        const allClassIds = [...new Set([...directClassIds, ...ledClasses.map((c) => c.id)])]
         const subjectNames = subjects.map((s) => s.name)
         const title = subjectNames.length ? `${subjectNames.join(', ')} o‘qituvchisi` : 'Fan o‘qituvchisi'
 
@@ -66,6 +74,7 @@ authRouter.post('/login', async (req: Request, res: Response, next: NextFunction
           subjectIds: teacherSubjectIds,
           subjectName: subjectNames.join(', '),
           subjectNames,
+          classIds: allClassIds,
         }
         res.json({ token, user: sessionUser })
         return

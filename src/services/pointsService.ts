@@ -68,7 +68,9 @@ export async function updateJournalCellPoints(
   newGrade: number | null | undefined,
   newAttendance: Attendance,
   prevGrade: number | null | undefined,
-  prevAttendance: Attendance | undefined
+  prevAttendance: Attendance | undefined,
+  subjectId?: string | null,
+  classId?: string | null
 ): Promise<{ delta: number; awardedBadge: string | null }> {
   const oldPts = prevAttendance !== undefined ? cellPoints(prevGrade, prevAttendance) : 0
   const newPts = cellPoints(newGrade, newAttendance)
@@ -80,7 +82,7 @@ export async function updateJournalCellPoints(
   const awardedBadge = await checkAutoBadges(student, newGrade)
 
   // Upsert PointsEvent for this journal cell
-  const eventId = `pe-${student.id}-${date}`
+  const eventId = subjectId ? `pe-${student.id}-${date}-${subjectId}` : `pe-${student.id}-${date}`
   if (newPts > 0) {
     await PointsEventModel.findOneAndUpdate(
       { id: eventId },
@@ -92,6 +94,8 @@ export async function updateJournalCellPoints(
         source: 'journal',
         reason: reasonForCell(newGrade, newAttendance),
         badgeId: awardedBadge,
+        subjectId: subjectId || null,
+        classId: classId || student.classId || null,
       },
       { upsert: true, new: true }
     )

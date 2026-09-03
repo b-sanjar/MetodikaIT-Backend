@@ -21,6 +21,7 @@ export interface SessionUser {
   subjectIds?: string[]
   subjectName?: string
   subjectNames?: string[]
+  classIds?: string[]
 }
 
 export interface TeacherDTO {
@@ -42,6 +43,9 @@ export interface ClassGroupDTO {
   grade: number
   letter: string
   teacherId: string | null
+  tutorId: string | null
+  teacherName?: string
+  tutorName?: string
 }
 
 export interface StudentDTO {

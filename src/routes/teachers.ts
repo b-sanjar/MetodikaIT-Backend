@@ -17,11 +17,16 @@ async function toTeacherDTO(teacher: any): Promise<TeacherDTO> {
       ? [teacher.subjectId]
       : []
 
-  const [classes, subjects] = await Promise.all([
-    ClassGroupModel.find({ teacherId: teacher.id }),
+  const directClassIds: string[] = Array.isArray(teacher.classIds) ? teacher.classIds : []
+
+  const [ledClasses, subjects] = await Promise.all([
+    ClassGroupModel.find({
+      $or: [{ teacherId: teacher.id }, { tutorId: teacher.id }],
+    }),
     SubjectModel.find({ id: { $in: teacherSubjectIds } }),
   ])
 
+  const allClassIds = [...new Set([...directClassIds, ...ledClasses.map((c) => c.id)])]
   const subjectNames = subjects.map((s) => s.name)
 
   return {
@@ -31,7 +36,7 @@ async function toTeacherDTO(teacher: any): Promise<TeacherDTO> {
     email: teacher.email || '',
     login: teacher.login,
     photo: teacher.photo || '',
-    classIds: classes.map((c) => c.id),
+    classIds: allClassIds,
     subjectId: teacherSubjectIds[0] || null,
     subjectIds: teacherSubjectIds,
     subjectName: subjectNames.join(', '),
@@ -48,12 +53,17 @@ teachersRouter.get('/', requireAuth, async (_req: Request, res: Response, next: 
       SubjectModel.find(),
     ])
 
-    const classMap = new Map<string, string[]>()
+    const ledClassMap = new Map<string, string[]>()
     for (const c of classes) {
       if (c.teacherId) {
-        const list = classMap.get(c.teacherId) || []
+        const list = ledClassMap.get(c.teacherId) || []
         list.push(c.id)
-        classMap.set(c.teacherId, list)
+        ledClassMap.set(c.teacherId, list)
+      }
+      if (c.tutorId) {
+        const list = ledClassMap.get(c.tutorId) || []
+        list.push(c.id)
+        ledClassMap.set(c.tutorId, list)
       }
     }
 
@@ -70,6 +80,10 @@ teachersRouter.get('/', requireAuth, async (_req: Request, res: Response, next: 
           : []
       const subjectNames = teacherSubjectIds.map((sid) => subjectMap.get(sid)).filter(Boolean) as string[]
 
+      const directClassIds: string[] = Array.isArray(t.classIds) ? t.classIds : []
+      const ledClassIds = ledClassMap.get(t.id) || []
+      const allClassIds = [...new Set([...directClassIds, ...ledClassIds])]
+
       return {
         id: t.id,
         name: t.name,
@@ -77,7 +91,7 @@ teachersRouter.get('/', requireAuth, async (_req: Request, res: Response, next: 
         email: t.email || '',
         login: t.login,
         photo: t.photo || '',
-        classIds: classMap.get(t.id) || [],
+        classIds: allClassIds,
         subjectId: teacherSubjectIds[0] || null,
         subjectIds: teacherSubjectIds,
         subjectName: subjectNames.join(', '),
@@ -158,11 +172,8 @@ teachersRouter.post('/', requireAuth, requireRoles('admin'), async (req: Request
       photo: '',
       subjectId: validatedIds[0] || null,
       subjectIds: validatedIds,
+      classIds: Array.isArray(classIds) ? classIds : [],
     })
-
-    if (Array.isArray(classIds) && classIds.length > 0) {
-      await ClassGroupModel.updateMany({ id: { $in: classIds } }, { teacherId })
-    }
 
     const dto = await toTeacherDTO(teacher)
     res.status(201).json(dto)
@@ -217,20 +228,11 @@ teachersRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req: Req
       teacher.subjectId = validatedIds[0] || null
     }
 
-    await teacher.save()
-
     if (Array.isArray(classIds)) {
-      // Unassign classes that previously belonged to this teacher but are not in classIds
-      await ClassGroupModel.updateMany(
-        { teacherId: teacher.id, id: { $nin: classIds } },
-        { teacherId: null }
-      )
-      // Assign new classes
-      await ClassGroupModel.updateMany(
-        { id: { $in: classIds } },
-        { teacherId: teacher.id }
-      )
+      teacher.classIds = classIds
     }
+
+    await teacher.save()
 
     const dto = await toTeacherDTO(teacher)
     res.json(dto)
@@ -248,8 +250,9 @@ teachersRouter.delete('/:id', requireAuth, requireRoles('admin'), async (req: Re
       return
     }
 
-    // Set teacherId = null on all classes assigned to this teacher
+    // Set teacherId = null or tutorId = null on classes assigned to this teacher
     await ClassGroupModel.updateMany({ teacherId: teacher.id }, { teacherId: null })
+    await ClassGroupModel.updateMany({ tutorId: teacher.id }, { tutorId: null })
     await TeacherModel.deleteOne({ id: teacher.id })
 
     res.status(204).send()

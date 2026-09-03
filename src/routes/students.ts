@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response, Router } from 'express'
-import { requireAuth, requireRoles } from '../middleware/auth.js'
+import { AuthRequest, requireAuth, requireRoles } from '../middleware/auth.js'
+import { ClassGroupModel } from '../models/ClassGroup.js'
 import { JournalEntryModel } from '../models/JournalEntry.js'
 import { PointsEventModel } from '../models/PointsEvent.js'
 import { StudentModel } from '../models/Student.js'
@@ -22,7 +23,7 @@ studentsRouter.get('/', requireAuth, async (req: Request, res: Response, next: N
   }
 })
 
-// POST /api/students (admin, teacher)
+// POST /api/students (admin, or class teacher/tutor)
 studentsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, classId, points, badges } = req.body || {}
@@ -31,6 +32,23 @@ studentsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (r
     if (!trimmedName || !classId) {
       res.status(400).json({ detail: 'O‘quvchi ismi va sinfi kiritilishi shart' })
       return
+    }
+
+    const klass = await ClassGroupModel.findOne({ id: String(classId) })
+    if (!klass) {
+      res.status(404).json({ detail: 'Bunday sinf topilmadi' })
+      return
+    }
+
+    const user = (req as AuthRequest).user!
+    if (user.role !== 'admin') {
+      const isLeaderOrTutor = klass.teacherId === user.id || klass.tutorId === user.id
+      if (!isLeaderOrTutor) {
+        res.status(403).json({
+          detail: 'Siz bu sinf rahbari yoki tyutori emassiz. O‘quvchi qo‘shish faqat sinf rahbari, tyutor yoki adminga ruxsat etiladi',
+        })
+        return
+      }
     }
 
     const id = `s${Date.now()}`
@@ -51,13 +69,25 @@ studentsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (r
   }
 })
 
-// PATCH /api/students/:id (admin, teacher)
+// PATCH /api/students/:id (admin, or class teacher/tutor)
 studentsRouter.patch('/:id', requireAuth, requireRoles('admin', 'teacher'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const student = await StudentModel.findOne({ id: req.params.id })
     if (!student) {
       res.status(404).json({ detail: 'O‘quvchi topilmadi' })
       return
+    }
+
+    const user = (req as AuthRequest).user!
+    if (user.role !== 'admin') {
+      const klass = await ClassGroupModel.findOne({ id: student.classId })
+      const isLeaderOrTutor = klass && (klass.teacherId === user.id || klass.tutorId === user.id)
+      if (!isLeaderOrTutor) {
+        res.status(403).json({
+          detail: 'Siz bu sinf rahbari yoki tyutori emassiz. O‘quvchini tahrirlash faqat sinf rahbari, tyutor yoki adminga ruxsat etiladi',
+        })
+        return
+      }
     }
 
     const { name, classId, points, badges } = req.body || {}
@@ -74,13 +104,25 @@ studentsRouter.patch('/:id', requireAuth, requireRoles('admin', 'teacher'), asyn
   }
 })
 
-// DELETE /api/students/:id (admin, teacher)
+// DELETE /api/students/:id (admin, or class teacher/tutor)
 studentsRouter.delete('/:id', requireAuth, requireRoles('admin', 'teacher'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const student = await StudentModel.findOne({ id: req.params.id })
     if (!student) {
       res.status(404).json({ detail: 'O‘quvchi topilmadi' })
       return
+    }
+
+    const user = (req as AuthRequest).user!
+    if (user.role !== 'admin') {
+      const klass = await ClassGroupModel.findOne({ id: student.classId })
+      const isLeaderOrTutor = klass && (klass.teacherId === user.id || klass.tutorId === user.id)
+      if (!isLeaderOrTutor) {
+        res.status(403).json({
+          detail: 'Siz bu sinf rahbari yoki tyutori emassiz. O‘quvchini o‘chirish faqat sinf rahbari, tyutor yoki adminga ruxsat etiladi',
+        })
+        return
+      }
     }
 
     // Cascade delete journal entries and points history

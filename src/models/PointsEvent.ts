@@ -8,6 +8,8 @@ export interface IPointsEvent extends Document {
   source: 'journal' | 'reward'
   reason: string
   badgeId: string | null
+  subjectId?: string | null
+  classId?: string | null
 }
 
 const PointsEventSchema = new Schema<IPointsEvent>(
@@ -19,6 +21,8 @@ const PointsEventSchema = new Schema<IPointsEvent>(
     source: { type: String, enum: ['journal', 'reward'], required: true },
     reason: { type: String, default: '' },
     badgeId: { type: String, default: null },
+    subjectId: { type: String, default: null, index: true },
+    classId: { type: String, default: null, index: true },
   },
   {
     timestamps: true,

@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import jwt from 'jsonwebtoken'
+import { ClassGroupModel } from '../models/ClassGroup.js'
 import { SubjectModel } from '../models/Subject.js'
 import { TeacherModel } from '../models/Teacher.js'
 import { UserModel } from '../models/User.js'
@@ -42,7 +43,14 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
           ? [teacher.subjectId]
           : []
 
-      const subjects = await SubjectModel.find({ id: { $in: teacherSubjectIds } })
+      const directClassIds: string[] = Array.isArray(teacher.classIds) ? teacher.classIds : []
+      const [subjects, ledClasses] = await Promise.all([
+        SubjectModel.find({ id: { $in: teacherSubjectIds } }),
+        ClassGroupModel.find({
+          $or: [{ teacherId: teacher.id }, { tutorId: teacher.id }],
+        }),
+      ])
+      const allClassIds = [...new Set([...directClassIds, ...ledClasses.map((c) => c.id)])]
       const subjectNames = subjects.map((s) => s.name)
       const title = subjectNames.length ? `${subjectNames.join(', ')} o‘qituvchisi` : 'Fan o‘qituvchisi'
 
@@ -57,6 +65,7 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
         subjectIds: teacherSubjectIds,
         subjectName: subjectNames.join(', '),
         subjectNames,
+        classIds: allClassIds,
         kind: 'teacher',
       }
     } else {
