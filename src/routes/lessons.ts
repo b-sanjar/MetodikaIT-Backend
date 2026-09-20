@@ -25,15 +25,24 @@ lessonsRouter.get('/summary', requireAuth, async (req: Request, res: Response, n
       filter.subjectId = String(subjectId)
     }
 
-    const summaries: GradeSummaryDTO[] = []
-    const allLessons = await LessonModel.find(filter, 'grade status')
+    const aggregated = await LessonModel.aggregate<{ _id: { grade: number; status: string }; count: number }>([
+      ...(Object.keys(filter).length ? [{ $match: filter }] : []),
+      { $group: { _id: { grade: '$grade', status: '$status' }, count: { $sum: 1 } } },
+    ])
 
+    const statsMap = new Map<string, number>()
+    for (const row of aggregated) {
+      statsMap.set(`${row._id.grade}:${row._id.status}`, row.count)
+    }
+
+    const summaries: GradeSummaryDTO[] = []
     for (let grade = 1; grade <= 11; grade++) {
-      const gradeLessons = allLessons.filter((l) => l.grade === grade)
+      const readyCount = statsMap.get(`${grade}:ready`) || 0
+      const draftCount = statsMap.get(`${grade}:draft`) || 0
       summaries.push({
         grade,
-        lessonCount: gradeLessons.length,
-        readyCount: gradeLessons.filter((l) => l.status === 'ready').length,
+        lessonCount: readyCount + draftCount,
+        readyCount,
       })
     }
 
@@ -60,7 +69,7 @@ lessonsRouter.get('/', requireAuth, async (req: Request, res: Response, next: Ne
     const lessons = await LessonModel.find(filter).sort({
       quarter: 1,
       order: 1,
-    })
+    }).lean()
     res.json(lessons)
   } catch (err) {
     next(err)
@@ -70,7 +79,7 @@ lessonsRouter.get('/', requireAuth, async (req: Request, res: Response, next: Ne
 // GET /api/lessons/:id
 lessonsRouter.get('/:id', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const lesson = await LessonModel.findOne({ id: req.params.id })
+    const lesson = await LessonModel.findOne({ id: req.params.id }).lean()
     if (!lesson) {
       res.status(404).json({ detail: 'Dars topilmadi' })
       return

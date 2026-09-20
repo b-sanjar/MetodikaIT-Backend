@@ -29,5 +29,7 @@ const ClassGroupSchema = new Schema<IClassGroup>(
 )
 
 ClassGroupSchema.index({ grade: 1, letter: 1 }, { unique: true })
+ClassGroupSchema.index({ teacherId: 1 })
+ClassGroupSchema.index({ tutorId: 1 })
 
 export const ClassGroupModel = mongoose.model<IClassGroup>('ClassGroup', ClassGroupSchema)

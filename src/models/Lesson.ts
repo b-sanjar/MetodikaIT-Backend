@@ -56,5 +56,8 @@ const LessonSchema = new Schema<ILesson>(
 )
 
 LessonSchema.index({ grade: 1, quarter: 1, order: 1 })
+LessonSchema.index({ grade: 1, subjectId: 1, quarter: 1, order: 1 })
+LessonSchema.index({ subjectId: 1, grade: 1 })
+LessonSchema.index({ authorId: 1 })
 
 export const LessonModel = mongoose.model<ILesson>('Lesson', LessonSchema)

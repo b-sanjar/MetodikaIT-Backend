@@ -1,3 +1,4 @@
+import compression from 'compression'
 import cors from 'cors'
 import express from 'express'
 import rateLimit from 'express-rate-limit'
@@ -16,6 +17,9 @@ import { teachersRouter } from './routes/teachers.js'
 
 export const app = express()
 
+// Gzip/deflate compression for all responses
+app.use(compression())
+
 // Security headers with helmet
 app.use(
   helmet({
@@ -33,6 +37,18 @@ app.use(
   })
 )
 
+// Response time and request monitoring middleware
+app.use((req, res, next) => {
+  const start = Date.now()
+  res.on('finish', () => {
+    const duration = Date.now() - start
+    if (req.originalUrl !== '/api/health') {
+      console.log(`[API] ${req.method} ${req.originalUrl} ${res.statusCode} - ${duration}ms`)
+    }
+  })
+  next()
+})
+
 // Parse JSON request body (up to 15MB for base64 photo avatars)
 app.use(express.json({ limit: '15mb' }))
 app.use(express.urlencoded({ extended: true, limit: '15mb' }))
@@ -49,7 +65,7 @@ app.use('/api/auth/login', loginLimiter)
 
 // Health check
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString() })
+  res.json({ status: 'ok', uptime: Math.floor(process.uptime()), time: new Date().toISOString() })
 })
 
 // Mount routers

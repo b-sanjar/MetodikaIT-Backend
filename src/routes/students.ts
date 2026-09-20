@@ -16,7 +16,7 @@ studentsRouter.get('/', requireAuth, async (req: Request, res: Response, next: N
   try {
     const { classId } = req.query
     const filter = classId ? { classId: String(classId) } : {}
-    const students = await StudentModel.find(filter).sort({ name: 1 })
+    const students = await StudentModel.find(filter).sort({ name: 1 }).lean()
     res.json(students)
   } catch (err) {
     next(err)
@@ -179,6 +179,7 @@ studentsRouter.get('/:id/points-history', requireAuth, async (req: Request, res:
     const events = await PointsEventModel.find({ studentId: req.params.id })
       .sort({ date: -1, createdAt: -1 })
       .limit(limit)
+      .lean()
 
     res.json(events)
   } catch (err) {
@@ -189,7 +190,7 @@ studentsRouter.get('/:id/points-history', requireAuth, async (req: Request, res:
 // GET /api/students/:id/journal
 studentsRouter.get('/:id/journal', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const entries = await JournalEntryModel.find({ studentId: req.params.id }).sort({ date: 1 })
+    const entries = await JournalEntryModel.find({ studentId: req.params.id }).sort({ date: 1 }).lean()
     res.json(entries)
   } catch (err) {
     next(err)

@@ -19,7 +19,7 @@ journalRouter.get('/', requireAuth, async (req: Request, res: Response, next: Ne
       return
     }
 
-    const entries = await JournalEntryModel.find({ classId: String(classId) }).sort({ date: 1 })
+    const entries = await JournalEntryModel.find({ classId: String(classId) }).sort({ date: 1 }).lean()
     res.json(entries)
   } catch (err) {
     next(err)
@@ -35,7 +35,7 @@ journalRouter.get('/columns', requireAuth, async (req: Request, res: Response, n
       return
     }
 
-    const columns = await JournalColumnModel.find({ classId: String(classId) }).sort({ date: 1 })
+    const columns = await JournalColumnModel.find({ classId: String(classId) }).sort({ date: 1 }).lean()
     res.json(columns)
   } catch (err) {
     next(err)
@@ -99,7 +99,18 @@ journalRouter.put('/cell', requireAuth, requireRoles('admin', 'teacher'), async 
       return
     }
 
-    const klass = await ClassGroupModel.findOne({ id: String(classId) })
+    // Parallelize lookups for class, student, existing entry, and column
+    const [klass, student, existing, column] = await Promise.all([
+      ClassGroupModel.findOne({ id: String(classId) }),
+      StudentModel.findOne({ id: String(studentId) }),
+      JournalEntryModel.findOne({
+        classId: String(classId),
+        studentId: String(studentId),
+        date: String(date),
+      }),
+      JournalColumnModel.findOne({ classId: String(classId), date: String(date) }).lean(),
+    ])
+
     if (!klass) {
       res.status(404).json({ detail: 'Sinf topilmadi' })
       return
@@ -117,17 +128,10 @@ journalRouter.put('/cell', requireAuth, requireRoles('admin', 'teacher'), async 
       return
     }
 
-    const student = await StudentModel.findOne({ id: String(studentId) })
     if (!student) {
       res.status(404).json({ detail: 'O‘quvchi topilmadi' })
       return
     }
-
-    const existing = await JournalEntryModel.findOne({
-      classId: klass.id,
-      studentId: student.id,
-      date: String(date),
-    })
 
     const targetAttendance: Attendance = attendance || existing?.attendance || 'keldi'
     let targetGrade: number | null = null
@@ -141,10 +145,9 @@ journalRouter.put('/cell', requireAuth, requireRoles('admin', 'teacher'), async 
     }
 
     // Resolve subjectId from the lesson conducted on this date
-    const column = await JournalColumnModel.findOne({ classId: klass.id, date: String(date) })
     let subjectId: string | null = null
     if (column) {
-      const lesson = await LessonModel.findOne({ id: column.lessonId })
+      const lesson = await LessonModel.findOne({ id: column.lessonId }).select('subjectId').lean()
       subjectId = lesson?.subjectId || null
     }
 

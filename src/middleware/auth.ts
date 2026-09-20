@@ -20,6 +20,21 @@ export function generateToken(payload: { sub: string; kind: 'user' | 'teacher'; 
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' })
 }
 
+// In-memory cache for resolved user sessions (45s TTL to avoid repeated DB hits on parallel requests)
+interface CachedAuthUser {
+  user: AuthUser
+  expiresAt: number
+}
+const authUserCache = new Map<string, CachedAuthUser>()
+
+export function invalidateAuthCache(userId?: string) {
+  if (userId) {
+    authUserCache.delete(userId)
+  } else {
+    authUserCache.clear()
+  }
+}
+
 export async function requireAuth(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -30,8 +45,19 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
   const token = authHeader.slice(7)
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { sub: string; kind: 'user' | 'teacher'; role: Role }
+    const now = Date.now()
+    const cached = authUserCache.get(decoded.sub)
+
+    if (cached && cached.expiresAt > now) {
+      req.user = cached.user
+      return next()
+    }
+
     if (decoded.kind === 'teacher') {
       const teacher = await TeacherModel.findOne({ id: decoded.sub })
+        .select('id name login photo subjectId subjectIds classIds')
+        .lean()
+
       if (!teacher) {
         res.status(401).json({ detail: 'Foydalanuvchi topilmadi' })
         return
@@ -45,16 +71,16 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
 
       const directClassIds: string[] = Array.isArray(teacher.classIds) ? teacher.classIds : []
       const [subjects, ledClasses] = await Promise.all([
-        SubjectModel.find({ id: { $in: teacherSubjectIds } }),
+        SubjectModel.find({ id: { $in: teacherSubjectIds } }).select('name').lean(),
         ClassGroupModel.find({
           $or: [{ teacherId: teacher.id }, { tutorId: teacher.id }],
-        }),
+        }).select('id').lean(),
       ])
       const allClassIds = [...new Set([...directClassIds, ...ledClasses.map((c) => c.id)])]
       const subjectNames = subjects.map((s) => s.name)
       const title = subjectNames.length ? `${subjectNames.join(', ')} o‘qituvchisi` : 'Fan o‘qituvchisi'
 
-      req.user = {
+      const authUser: AuthUser = {
         id: teacher.id,
         name: teacher.name,
         login: teacher.login,
@@ -68,13 +94,20 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
         classIds: allClassIds,
         kind: 'teacher',
       }
+
+      authUserCache.set(decoded.sub, { user: authUser, expiresAt: now + 45_000 })
+      req.user = authUser
     } else {
       const user = await UserModel.findOne({ id: decoded.sub })
+        .select('id name login role title photo')
+        .lean()
+
       if (!user) {
         res.status(401).json({ detail: 'Foydalanuvchi topilmadi' })
         return
       }
-      req.user = {
+
+      const authUser: AuthUser = {
         id: user.id,
         name: user.name,
         login: user.login,
@@ -83,6 +116,9 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
         photo: user.photo || '',
         kind: 'user',
       }
+
+      authUserCache.set(decoded.sub, { user: authUser, expiresAt: now + 45_000 })
+      req.user = authUser
     }
     next()
   } catch (_err) {

@@ -27,5 +27,6 @@ const JournalColumnSchema = new Schema<IJournalColumn>(
 )
 
 JournalColumnSchema.index({ classId: 1, date: 1 }, { unique: true })
+JournalColumnSchema.index({ lessonId: 1 })
 
 export const JournalColumnModel = mongoose.model<IJournalColumn>('JournalColumn', JournalColumnSchema)

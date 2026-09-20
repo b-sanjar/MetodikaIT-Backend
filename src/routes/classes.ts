@@ -13,8 +13,8 @@ export const classesRouter = Router()
 classesRouter.get('/', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const [classes, teachers] = await Promise.all([
-      ClassGroupModel.find().sort({ grade: 1, letter: 1 }),
-      TeacherModel.find(),
+      ClassGroupModel.find().sort({ grade: 1, letter: 1 }).lean(),
+      TeacherModel.find().select('id name').lean(),
     ])
 
     const teacherMap = new Map<string, string>()
@@ -78,7 +78,7 @@ classesRouter.post('/', requireAuth, requireRoles('admin'), async (req: Request,
       tutorId: tutorId || null,
     })
 
-    const [teachers] = await Promise.all([TeacherModel.find()])
+    const teachers = await TeacherModel.find().select('id name').lean()
     const teacherMap = new Map(teachers.map((t) => [t.id, t.name]))
 
     const dto: ClassGroupDTO = {
@@ -134,7 +134,7 @@ classesRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req: Requ
 
     await klass.save()
 
-    const teachers = await TeacherModel.find()
+    const teachers = await TeacherModel.find().select('id name').lean()
     const teacherMap = new Map(teachers.map((t) => [t.id, t.name]))
 
     const dto: ClassGroupDTO = {

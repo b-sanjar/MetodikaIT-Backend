@@ -32,5 +32,7 @@ const JournalEntrySchema = new Schema<IJournalEntry>(
 )
 
 JournalEntrySchema.index({ classId: 1, studentId: 1, date: 1 }, { unique: true })
+JournalEntrySchema.index({ classId: 1, date: 1 })
+JournalEntrySchema.index({ studentId: 1, date: 1 })
 
 export const JournalEntryModel = mongoose.model<IJournalEntry>('JournalEntry', JournalEntrySchema)

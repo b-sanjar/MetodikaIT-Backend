@@ -86,7 +86,7 @@ export const DEFAULT_SUBJECTS = [
 ]
 
 export async function ensureDefaultSubjects(): Promise<void> {
-  const count = await SubjectModel.countDocuments()
+  const count = await SubjectModel.estimatedDocumentCount()
   if (count === 0) {
     console.log('[Fanlar] Boshlang‘ich maktab fanlari kiritilmoqda...')
     await SubjectModel.insertMany(DEFAULT_SUBJECTS)
@@ -99,13 +99,10 @@ export async function ensureAdminUser(): Promise<void> {
   const adminPassword = process.env.ADMIN_PASSWORD || 'AXL007_c3'
   const adminName = process.env.ADMIN_NAME || 'Sanjar Burxonov'
 
-  const passwordHash = await bcrypt.hash(adminPassword, 10)
-
-  // Remove any legacy admin or users with other logins
-  await UserModel.deleteMany({ login: { $ne: adminLogin } })
-
   const admin = await UserModel.findOne({ login: adminLogin })
   if (!admin) {
+    const passwordHash = await bcrypt.hash(adminPassword, 10)
+    await UserModel.deleteMany({ login: { $ne: adminLogin } })
     await UserModel.create({
       id: 'u-admin',
       name: adminName,
@@ -117,12 +114,15 @@ export async function ensureAdminUser(): Promise<void> {
     })
     console.log(`[Admin] Yangi admin yaratildi: ${adminName} (${adminLogin})`)
   } else {
-    admin.name = adminName
-    admin.passwordHash = passwordHash
-    admin.role = 'admin'
-    admin.title = 'Platforma administratori'
-    await admin.save()
-    console.log(`[Admin] Admin hisobi yangilandi: ${adminName} (${adminLogin})`)
+    const isPasswordMatch = await bcrypt.compare(adminPassword, admin.passwordHash)
+    if (!isPasswordMatch || admin.name !== adminName || admin.role !== 'admin') {
+      admin.name = adminName
+      admin.passwordHash = isPasswordMatch ? admin.passwordHash : await bcrypt.hash(adminPassword, 10)
+      admin.role = 'admin'
+      admin.title = 'Platforma administratori'
+      await admin.save()
+      console.log(`[Admin] Admin hisobi yangilandi: ${adminName} (${adminLogin})`)
+    }
   }
 }
 

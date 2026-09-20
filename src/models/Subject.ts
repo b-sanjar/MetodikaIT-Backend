@@ -32,4 +32,6 @@ const SubjectSchema = new Schema<ISubject>(
   }
 )
 
+SubjectSchema.index({ order: 1, name: 1 })
+
 export const SubjectModel = mongoose.model<ISubject>('Subject', SubjectSchema)

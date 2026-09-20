@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
 import { NextFunction, Request, Response, Router } from 'express'
-import { AuthRequest, generateToken, requireAuth } from '../middleware/auth.js'
+import { AuthRequest, generateToken, invalidateAuthCache, requireAuth } from '../middleware/auth.js'
 import { ClassGroupModel } from '../models/ClassGroup.js'
 import { SubjectModel } from '../models/Subject.js'
 import { TeacherModel } from '../models/Teacher.js'
@@ -22,7 +22,7 @@ authRouter.post('/login', async (req: Request, res: Response, next: NextFunction
     const trimmedLogin = String(login).trim()
 
     // 1. Try Users (admin, viewer)
-    const user = await UserModel.findOne({ login: trimmedLogin })
+    const user = await UserModel.findOne({ login: trimmedLogin }).lean()
     if (user) {
       const match = await bcrypt.compare(String(password), user.passwordHash)
       if (match) {
@@ -41,7 +41,7 @@ authRouter.post('/login', async (req: Request, res: Response, next: NextFunction
     }
 
     // 2. Try Teachers
-    const teacher = await TeacherModel.findOne({ login: trimmedLogin })
+    const teacher = await TeacherModel.findOne({ login: trimmedLogin }).lean()
     if (teacher) {
       const match = await bcrypt.compare(String(password), teacher.passwordHash)
       if (match) {
@@ -119,6 +119,7 @@ async function handleUpdateProfile(req: AuthRequest, res: Response, next: NextFu
       }
 
       await teacher.save()
+      invalidateAuthCache(teacher.id)
 
       const sessionUser: SessionUser = {
         id: teacher.id,
@@ -143,6 +144,7 @@ async function handleUpdateProfile(req: AuthRequest, res: Response, next: NextFu
       }
 
       await user.save()
+      invalidateAuthCache(user.id)
 
       const sessionUser: SessionUser = {
         id: user.id,

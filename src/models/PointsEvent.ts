@@ -37,5 +37,8 @@ const PointsEventSchema = new Schema<IPointsEvent>(
 )
 
 PointsEventSchema.index({ studentId: 1, date: -1, createdAt: -1 })
+PointsEventSchema.index({ studentId: 1, subjectId: 1, date: 1 })
+PointsEventSchema.index({ subjectId: 1, date: 1 })
+PointsEventSchema.index({ classId: 1, date: 1 })
 
 export const PointsEventModel = mongoose.model<IPointsEvent>('PointsEvent', PointsEventSchema)

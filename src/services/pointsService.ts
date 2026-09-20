@@ -42,18 +42,13 @@ export async function checkAutoBadges(student: IStudent, newGrade: number | null
 
   // 2. Streak badge: 5 consecutive 'keldi' lessons
   if (!student.badges.includes('streak')) {
-    const entries = await JournalEntryModel.find({ studentId: student.id }).sort({ date: 1 })
-    let streak = 0
-    let maxStreak = 0
-    for (const e of entries) {
-      if (e.attendance === 'keldi') {
-        streak++
-        if (streak > maxStreak) maxStreak = streak
-      } else {
-        streak = 0
-      }
-    }
-    if (maxStreak >= 5) {
+    const latestEntries = await JournalEntryModel.find({ studentId: student.id })
+      .sort({ date: -1 })
+      .limit(5)
+      .select('attendance')
+      .lean()
+
+    if (latestEntries.length === 5 && latestEntries.every((e) => e.attendance === 'keldi')) {
       student.badges.push('streak')
       if (!awardedBadge) awardedBadge = 'streak'
     }

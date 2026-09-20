@@ -9,26 +9,26 @@ export const subjectsRouter = Router()
 // GET /api/subjects
 subjectsRouter.get('/', requireAuth, async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const subjects = await SubjectModel.find().sort({ order: 1, name: 1 })
-
-    // Enrich with teacher and lesson counts
-    const [teachers, lessons] = await Promise.all([
-      TeacherModel.find({}, 'subjectId'),
-      LessonModel.find({}, 'subjectId'),
+    const [subjects, teacherCounts, lessonCounts] = await Promise.all([
+      SubjectModel.find().sort({ order: 1, name: 1 }).lean(),
+      TeacherModel.aggregate<{ _id: string; count: number }>([
+        { $match: { subjectId: { $ne: null } } },
+        { $group: { _id: '$subjectId', count: { $sum: 1 } } },
+      ]),
+      LessonModel.aggregate<{ _id: string; count: number }>([
+        { $match: { subjectId: { $ne: null } } },
+        { $group: { _id: '$subjectId', count: { $sum: 1 } } },
+      ]),
     ])
 
     const teacherCountMap = new Map<string, number>()
-    for (const t of teachers) {
-      if (t.subjectId) {
-        teacherCountMap.set(t.subjectId, (teacherCountMap.get(t.subjectId) || 0) + 1)
-      }
+    for (const row of teacherCounts) {
+      if (row._id) teacherCountMap.set(row._id, row.count)
     }
 
     const lessonCountMap = new Map<string, number>()
-    for (const l of lessons) {
-      if (l.subjectId) {
-        lessonCountMap.set(l.subjectId, (lessonCountMap.get(l.subjectId) || 0) + 1)
-      }
+    for (const row of lessonCounts) {
+      if (row._id) lessonCountMap.set(row._id, row.count)
     }
 
     const result = subjects.map((s) => ({

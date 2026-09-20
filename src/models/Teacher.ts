@@ -39,4 +39,9 @@ const TeacherSchema = new Schema<ITeacher>(
   }
 )
 
+TeacherSchema.index({ name: 1 })
+TeacherSchema.index({ subjectId: 1 })
+TeacherSchema.index({ subjectIds: 1 })
+TeacherSchema.index({ classIds: 1 })
+
 export const TeacherModel = mongoose.model<ITeacher>('Teacher', TeacherSchema)

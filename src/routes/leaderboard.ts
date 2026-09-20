@@ -34,7 +34,7 @@ leaderboardRouter.get('/', requireAuth, async (req: Request, res: Response, next
       studentFilter.classId = String(classId)
     }
 
-    const students = await StudentModel.find(studentFilter)
+    const students = await StudentModel.find(studentFilter).select('id points').lean()
     const studentIds = students.map((s) => s.id)
 
     let entries: { studentId: string; points: number }[] = []
@@ -64,11 +64,15 @@ leaderboardRouter.get('/', requireAuth, async (req: Request, res: Response, next
         eventFilter.subjectId = String(subjectId)
       }
 
-      const events = await PointsEventModel.find(eventFilter)
+      // MongoDB native aggregation pipeline instead of fetching all event docs into memory
+      const aggregatedDeltas = await PointsEventModel.aggregate<{ _id: string; totalDelta: number }>([
+        { $match: eventFilter },
+        { $group: { _id: '$studentId', totalDelta: { $sum: '$delta' } } },
+      ])
 
       const deltasMap = new Map<string, number>()
-      for (const ev of events) {
-        deltasMap.set(ev.studentId, (deltasMap.get(ev.studentId) || 0) + ev.delta)
+      for (const row of aggregatedDeltas) {
+        deltasMap.set(row._id, row.totalDelta)
       }
 
       entries = students.map((s) => ({

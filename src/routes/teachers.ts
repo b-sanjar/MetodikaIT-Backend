@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
 import { NextFunction, Request, Response, Router } from 'express'
-import { requireAuth, requireRoles } from '../middleware/auth.js'
+import { invalidateAuthCache, requireAuth, requireRoles } from '../middleware/auth.js'
 import { ClassGroupModel } from '../models/ClassGroup.js'
 import { SubjectModel } from '../models/Subject.js'
 import { TeacherModel } from '../models/Teacher.js'
@@ -22,8 +22,8 @@ async function toTeacherDTO(teacher: any): Promise<TeacherDTO> {
   const [ledClasses, subjects] = await Promise.all([
     ClassGroupModel.find({
       $or: [{ teacherId: teacher.id }, { tutorId: teacher.id }],
-    }),
-    SubjectModel.find({ id: { $in: teacherSubjectIds } }),
+    }).select('id').lean(),
+    SubjectModel.find({ id: { $in: teacherSubjectIds } }).select('name').lean(),
   ])
 
   const allClassIds = [...new Set([...directClassIds, ...ledClasses.map((c) => c.id)])]
@@ -48,9 +48,9 @@ async function toTeacherDTO(teacher: any): Promise<TeacherDTO> {
 teachersRouter.get('/', requireAuth, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const [teachers, classes, subjects] = await Promise.all([
-      TeacherModel.find().sort({ name: 1 }),
-      ClassGroupModel.find(),
-      SubjectModel.find(),
+      TeacherModel.find().select('-passwordHash').sort({ name: 1 }).lean(),
+      ClassGroupModel.find().select('id teacherId tutorId').lean(),
+      SubjectModel.find().select('id name').lean(),
     ])
 
     const ledClassMap = new Map<string, string[]>()
@@ -233,6 +233,7 @@ teachersRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req: Req
     }
 
     await teacher.save()
+    invalidateAuthCache(teacher.id)
 
     const dto = await toTeacherDTO(teacher)
     res.json(dto)
@@ -249,6 +250,8 @@ teachersRouter.delete('/:id', requireAuth, requireRoles('admin'), async (req: Re
       res.status(404).json({ detail: 'O‘qituvchi topilmadi' })
       return
     }
+
+    invalidateAuthCache(teacher.id)
 
     // Set teacherId = null or tutorId = null on classes assigned to this teacher
     await ClassGroupModel.updateMany({ teacherId: teacher.id }, { teacherId: null })

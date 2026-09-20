@@ -28,4 +28,9 @@ const StudentSchema = new Schema<IStudent>(
   }
 )
 
+StudentSchema.index({ classId: 1, name: 1 })
+StudentSchema.index({ name: 1 })
+StudentSchema.index({ points: -1 })
+StudentSchema.index({ classId: 1, points: -1 })
+
 export const StudentModel = mongoose.model<IStudent>('Student', StudentSchema)
