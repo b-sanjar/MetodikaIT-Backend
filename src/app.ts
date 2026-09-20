@@ -10,6 +10,7 @@ import { classesRouter } from './routes/classes.js'
 import { journalRouter } from './routes/journal.js'
 import { leaderboardRouter } from './routes/leaderboard.js'
 import { lessonsRouter } from './routes/lessons.js'
+import { publicRouter } from './routes/public.js'
 import { quartersRouter } from './routes/quarters.js'
 import { studentsRouter } from './routes/students.js'
 import { subjectsRouter } from './routes/subjects.js'
@@ -80,6 +81,7 @@ app.use('/api/journal', journalRouter)
 app.use('/api/leaderboard', leaderboardRouter)
 app.use('/api/badges', badgesRouter)
 app.use('/api/subjects', subjectsRouter)
+app.use('/api/public', publicRouter)
 
 // 404 handler
 app.use((_req, res) => {

@@ -14,10 +14,14 @@ export interface AuthRequest extends Request {
   user?: AuthUser
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'metodika_it_secret_key_2026_super_secure'
+export const JWT_SECRET = process.env.JWT_SECRET || 'metodika_it_secret_key_2026_super_secure'
 
 export function generateToken(payload: { sub: string; kind: 'user' | 'teacher'; role: Role }): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' })
+}
+
+export function generateParentToken(payload: { studentId: string; code: string; classId: string }): string {
+  return jwt.sign({ ...payload, kind: 'parent', role: 'parent' }, JWT_SECRET, { expiresIn: '14d' })
 }
 
 // In-memory cache for resolved user sessions (45s TTL to avoid repeated DB hits on parallel requests)

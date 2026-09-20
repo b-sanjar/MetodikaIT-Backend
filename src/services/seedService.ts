@@ -5,7 +5,7 @@ import { JournalEntryModel } from '../models/JournalEntry.js'
 import { LessonModel } from '../models/Lesson.js'
 import { PointsEventModel } from '../models/PointsEvent.js'
 import { QuarterInfoModel } from '../models/QuarterInfo.js'
-import { StudentModel } from '../models/Student.js'
+import { ensureStudentCodes, StudentModel } from '../models/Student.js'
 import { SubjectModel } from '../models/Subject.js'
 import { TeacherModel } from '../models/Teacher.js'
 import { UserModel } from '../models/User.js'
@@ -163,4 +163,5 @@ export async function cleanEverything(): Promise<void> {
 export async function seedDatabaseIfNeeded(): Promise<void> {
   await ensureAdminUser()
   await ensureDefaultSubjects()
+  await ensureStudentCodes()
 }

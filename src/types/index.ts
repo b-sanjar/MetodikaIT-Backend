@@ -52,8 +52,61 @@ export interface StudentDTO {
   id: string
   name: string
   classId: string
+  code?: string
   points: number
   badges: string[]
+}
+
+export interface PublicStudentDTO {
+  id: string
+  name: string
+  code: string
+  classId: string
+  className: string
+  grade: number
+  letter: string
+  points: number
+  badges: string[]
+  ranks: {
+    school: { position: number; total: number }
+    parallel: { position: number; total: number }
+    class: { position: number; total: number }
+  }
+  attendance: {
+    totalLessons: number
+    present: number
+    absent: number
+    late: number
+    ratePercent: number
+  }
+  subjectStats: {
+    subjectId: string
+    subjectName: string
+    color?: string
+    icon?: string
+    grades: number[]
+    averageGrade: number | null
+    totalPoints: number
+  }[]
+  recentEvents: {
+    id: string
+    date: string
+    delta: number
+    source: 'journal' | 'reward'
+    reason: string
+    badgeId: string | null
+  }[]
+}
+
+export interface PublicLeaderboardEntryDTO {
+  studentId: string
+  name: string
+  code: string
+  classId: string
+  className: string
+  grade: number
+  points: number
+  position: number
 }
 
 export type LessonStatus = 'ready' | 'draft'

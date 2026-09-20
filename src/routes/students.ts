@@ -3,7 +3,7 @@ import { AuthRequest, requireAuth, requireRoles } from '../middleware/auth.js'
 import { ClassGroupModel } from '../models/ClassGroup.js'
 import { JournalEntryModel } from '../models/JournalEntry.js'
 import { PointsEventModel } from '../models/PointsEvent.js'
-import { StudentModel } from '../models/Student.js'
+import { generateUniqueStudentCode, StudentModel } from '../models/Student.js'
 
 export const studentsRouter = Router()
 
@@ -54,11 +54,13 @@ studentsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (r
     const id = `s${Date.now()}`
     const parsedPoints = Math.max(0, Number(points) || 0)
     const uniqueBadges = Array.isArray(badges) ? [...new Set(badges)] : []
+    const studentCode = (req.body?.code && String(req.body.code).trim()) || (await generateUniqueStudentCode())
 
     const student = await StudentModel.create({
       id,
       name: trimmedName,
       classId: String(classId),
+      code: studentCode,
       points: parsedPoints,
       badges: uniqueBadges,
     })
@@ -90,10 +92,13 @@ studentsRouter.patch('/:id', requireAuth, requireRoles('admin', 'teacher'), asyn
       }
     }
 
-    const { name, classId, points, badges } = req.body || {}
+    const { name, classId, points, badges, code } = req.body || {}
 
     if (name !== undefined) student.name = String(name).trim()
     if (classId !== undefined) student.classId = String(classId)
+    if (code !== undefined) {
+      student.code = code === 'regenerate' ? await generateUniqueStudentCode() : String(code).trim()
+    }
     if (points !== undefined) student.points = Math.max(0, Number(points))
     if (Array.isArray(badges)) student.badges = [...new Set(badges)]
 
