@@ -92,7 +92,7 @@ journalRouter.post('/columns', requireAuth, requireRoles('admin', 'teacher'), as
 // PUT /api/journal/cell (admin, class teacher, tutor, or assigned subject teacher) — upsert
 journalRouter.put('/cell', requireAuth, requireRoles('admin', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { classId, studentId, date, grade, attendance } = (req as any).body || {}
+    const { classId, studentId, date, grade, attendance, needsWork, note } = (req as any).body || {}
 
     if (!classId || !studentId || !date) {
       res.status(400).json({ detail: 'Sinf, o‘quvchi va sana ko‘rsatilishi shart' })
@@ -144,6 +144,9 @@ journalRouter.put('/cell', requireAuth, requireRoles('admin', 'teacher'), async 
       targetGrade = existing?.grade ?? null
     }
 
+    const targetNeedsWork = needsWork !== undefined ? Boolean(needsWork) : (existing?.needsWork ?? false)
+    const targetNote = note !== undefined ? String(note).trim() : (existing?.note ?? '')
+
     // Resolve subjectId from the lesson conducted on this date
     let subjectId: string | null = null
     if (column) {
@@ -173,6 +176,8 @@ journalRouter.put('/cell', requireAuth, requireRoles('admin', 'teacher'), async 
         date: String(date),
         grade: targetGrade,
         attendance: targetAttendance,
+        needsWork: targetNeedsWork,
+        note: targetNote,
       },
       { upsert: true, new: true }
     )

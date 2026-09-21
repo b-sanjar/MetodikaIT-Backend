@@ -12,14 +12,22 @@ export const classesRouter = Router()
 // GET /api/classes(?myOnly=true)
 classesRouter.get('/', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const [classes, teachers] = await Promise.all([
-      ClassGroupModel.find().sort({ grade: 1, letter: 1 }).lean(),
+    const classes = await ClassGroupModel.find().sort({ grade: 1, letter: 1 }).lean()
+    const leaderIds = classes.map((c) => c.leaderId).filter(Boolean) as string[]
+
+    const [teachers, leaders] = await Promise.all([
       TeacherModel.find().select('id name').lean(),
+      leaderIds.length ? StudentModel.find({ id: { $in: leaderIds } }).select('id name').lean() : [],
     ])
 
     const teacherMap = new Map<string, string>()
     for (const t of teachers) {
       teacherMap.set(t.id, t.name)
+    }
+
+    const leaderMap = new Map<string, string>()
+    for (const l of leaders) {
+      leaderMap.set(l.id, l.name)
     }
 
     let result: ClassGroupDTO[] = classes.map((c) => ({
@@ -30,6 +38,8 @@ classesRouter.get('/', requireAuth, async (req: AuthRequest, res: Response, next
       tutorId: c.tutorId || null,
       teacherName: c.teacherId ? teacherMap.get(c.teacherId) || '' : '',
       tutorName: c.tutorId ? teacherMap.get(c.tutorId) || '' : '',
+      leaderId: c.leaderId || null,
+      leaderName: c.leaderId ? leaderMap.get(c.leaderId) || '' : '',
     }))
 
     // Filter for teachers if myOnly=true is requested
@@ -52,7 +62,7 @@ classesRouter.get('/', requireAuth, async (req: AuthRequest, res: Response, next
 // POST /api/classes (admin only)
 classesRouter.post('/', requireAuth, requireRoles('admin'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { grade, letter, teacherId, tutorId } = req.body || {}
+    const { grade, letter, teacherId, tutorId, leaderId } = req.body || {}
 
     const parsedGrade = Number(grade)
     const upperLetter = String(letter || '').trim().toUpperCase()
@@ -76,10 +86,17 @@ classesRouter.post('/', requireAuth, requireRoles('admin'), async (req: Request,
       letter: upperLetter,
       teacherId: teacherId || null,
       tutorId: tutorId || null,
+      leaderId: leaderId || null,
     })
 
     const teachers = await TeacherModel.find().select('id name').lean()
     const teacherMap = new Map(teachers.map((t) => [t.id, t.name]))
+
+    let leaderName = ''
+    if (newClass.leaderId) {
+      const leaderStudent = await StudentModel.findOne({ id: newClass.leaderId }).select('name').lean()
+      leaderName = leaderStudent?.name || ''
+    }
 
     const dto: ClassGroupDTO = {
       id: newClass.id,
@@ -89,9 +106,65 @@ classesRouter.post('/', requireAuth, requireRoles('admin'), async (req: Request,
       tutorId: newClass.tutorId,
       teacherName: newClass.teacherId ? teacherMap.get(newClass.teacherId) || '' : '',
       tutorName: newClass.tutorId ? teacherMap.get(newClass.tutorId) || '' : '',
+      leaderId: newClass.leaderId,
+      leaderName,
     }
 
     res.status(201).json(dto)
+  } catch (err) {
+    next(err)
+  }
+})
+
+// PATCH /api/classes/:id/leader (admin or class teacher)
+classesRouter.patch('/:id/leader', requireAuth, requireRoles('admin', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const klass = await ClassGroupModel.findOne({ id: req.params.id })
+    if (!klass) {
+      res.status(404).json({ detail: 'Sinf topilmadi' })
+      return
+    }
+
+    const user = req.user!
+    const isAllowed = user.role === 'admin' || klass.teacherId === user.id
+    if (!isAllowed) {
+      res.status(403).json({ detail: 'Sinf sardorini faqat sinf rahbari yoki administrator belgilashi mumkin' })
+      return
+    }
+
+    const { leaderId } = req.body || {}
+    let leaderName = ''
+
+    if (leaderId) {
+      const student = await StudentModel.findOne({ id: String(leaderId), classId: klass.id })
+      if (!student) {
+        res.status(400).json({ detail: 'Tanlangan o‘quvchi ushbu sinfda topilmadi' })
+        return
+      }
+      klass.leaderId = student.id
+      leaderName = student.name
+    } else {
+      klass.leaderId = null
+    }
+
+    await klass.save()
+
+    const teachers = await TeacherModel.find().select('id name').lean()
+    const teacherMap = new Map(teachers.map((t) => [t.id, t.name]))
+
+    const dto: ClassGroupDTO = {
+      id: klass.id,
+      grade: klass.grade,
+      letter: klass.letter,
+      teacherId: klass.teacherId,
+      tutorId: klass.tutorId,
+      teacherName: klass.teacherId ? teacherMap.get(klass.teacherId) || '' : '',
+      tutorName: klass.tutorId ? teacherMap.get(klass.tutorId) || '' : '',
+      leaderId: klass.leaderId,
+      leaderName,
+    }
+
+    res.json(dto)
   } catch (err) {
     next(err)
   }
@@ -106,7 +179,7 @@ classesRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req: Requ
       return
     }
 
-    const { grade, letter, teacherId, tutorId } = req.body || {}
+    const { grade, letter, teacherId, tutorId, leaderId } = req.body || {}
 
     const newGrade = grade !== undefined ? Number(grade) : klass.grade
     const newLetter = letter !== undefined ? String(letter).trim().toUpperCase() : klass.letter
@@ -131,11 +204,20 @@ classesRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req: Requ
     if (tutorId !== undefined) {
       klass.tutorId = tutorId || null
     }
+    if (leaderId !== undefined) {
+      klass.leaderId = leaderId || null
+    }
 
     await klass.save()
 
     const teachers = await TeacherModel.find().select('id name').lean()
     const teacherMap = new Map(teachers.map((t) => [t.id, t.name]))
+
+    let leaderName = ''
+    if (klass.leaderId) {
+      const leaderStudent = await StudentModel.findOne({ id: klass.leaderId }).select('name').lean()
+      leaderName = leaderStudent?.name || ''
+    }
 
     const dto: ClassGroupDTO = {
       id: klass.id,
@@ -145,6 +227,8 @@ classesRouter.patch('/:id', requireAuth, requireRoles('admin'), async (req: Requ
       tutorId: klass.tutorId,
       teacherName: klass.teacherId ? teacherMap.get(klass.teacherId) || '' : '',
       tutorName: klass.tutorId ? teacherMap.get(klass.tutorId) || '' : '',
+      leaderId: klass.leaderId,
+      leaderName,
     }
 
     res.json(dto)

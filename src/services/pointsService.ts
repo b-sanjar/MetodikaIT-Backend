@@ -7,7 +7,7 @@ export const GRADE_POINTS: Record<number, number> = {
   5: 15,
   4: 10,
   3: 5,
-  2: 0,
+  2: -10,
 }
 
 export const ATTENDANCE_POINTS: Record<Attendance, number> = {
@@ -17,6 +17,9 @@ export const ATTENDANCE_POINTS: Record<Attendance, number> = {
 }
 
 export function cellPoints(grade: number | null | undefined, attendance: Attendance): number {
+  if (grade === 2) {
+    return -10
+  }
   const gPts = grade && GRADE_POINTS[grade] !== undefined ? GRADE_POINTS[grade] : 0
   const aPts = ATTENDANCE_POINTS[attendance] ?? 0
   return gPts + aPts
@@ -26,6 +29,7 @@ export function reasonForCell(grade: number | null | undefined, attendance: Atte
   if (grade === 5) return 'Darsda «5» baho'
   if (grade === 4) return 'Darsda «4» baho'
   if (grade === 3) return 'Darsda «3» baho'
+  if (grade === 2) return 'Darsda «2» baho (-10 ball)'
   if (attendance === 'keldi') return 'Darsga kelgani uchun'
   if (attendance === 'kechikdi') return 'Kechikib kelgani uchun'
   return 'Dars'
@@ -78,7 +82,7 @@ export async function updateJournalCellPoints(
 
   // Upsert PointsEvent for this journal cell
   const eventId = subjectId ? `pe-${student.id}-${date}-${subjectId}` : `pe-${student.id}-${date}`
-  if (newPts > 0) {
+  if (newPts !== 0) {
     await PointsEventModel.findOneAndUpdate(
       { id: eventId },
       {

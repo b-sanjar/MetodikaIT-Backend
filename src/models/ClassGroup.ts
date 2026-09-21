@@ -6,6 +6,7 @@ export interface IClassGroup extends Document {
   letter: string
   teacherId: string | null
   tutorId: string | null
+  leaderId: string | null
 }
 
 const ClassGroupSchema = new Schema<IClassGroup>(
@@ -15,6 +16,7 @@ const ClassGroupSchema = new Schema<IClassGroup>(
     letter: { type: String, required: true, trim: true, uppercase: true },
     teacherId: { type: String, default: null },
     tutorId: { type: String, default: null },
+    leaderId: { type: String, default: null },
   },
   {
     timestamps: true,

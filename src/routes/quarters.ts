@@ -8,12 +8,13 @@ export const quartersRouter = Router()
 quartersRouter.get('/', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { grade } = req.query
-    if (!grade) {
-      res.status(400).json({ detail: 'Sinf (grade) ko‘rsatilishi shart' })
+    const parsedGrade = Number(grade)
+    if (!grade || isNaN(parsedGrade)) {
+      res.status(400).json({ detail: 'Sinf (grade) to‘g‘ri ko‘rsatilishi shart' })
       return
     }
 
-    const infos = await QuarterInfoModel.find({ grade: Number(grade) }).sort({ quarter: 1 })
+    const infos = await QuarterInfoModel.find({ grade: parsedGrade }).sort({ quarter: 1 })
     res.json(infos)
   } catch (err) {
     next(err)

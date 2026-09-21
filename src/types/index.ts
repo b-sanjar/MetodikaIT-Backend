@@ -46,6 +46,8 @@ export interface ClassGroupDTO {
   tutorId: string | null
   teacherName?: string
   tutorName?: string
+  leaderId?: string | null
+  leaderName?: string
 }
 
 export interface StudentDTO {
@@ -154,6 +156,8 @@ export interface JournalEntryDTO {
   date: string
   grade: number | null
   attendance: Attendance
+  needsWork?: boolean
+  note?: string
 }
 
 export interface BadgeDef {

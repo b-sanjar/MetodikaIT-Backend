@@ -8,6 +8,8 @@ export interface IJournalEntry extends Document {
   date: string
   grade: number | null
   attendance: Attendance
+  needsWork?: boolean
+  note?: string
 }
 
 const JournalEntrySchema = new Schema<IJournalEntry>(
@@ -18,6 +20,8 @@ const JournalEntrySchema = new Schema<IJournalEntry>(
     date: { type: String, required: true },
     grade: { type: Number, default: null },
     attendance: { type: String, enum: ['keldi', 'kelmadi', 'kechikdi'], required: true, default: 'keldi' },
+    needsWork: { type: Boolean, default: false },
+    note: { type: String, default: '' },
   },
   {
     timestamps: true,

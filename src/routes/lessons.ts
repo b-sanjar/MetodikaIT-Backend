@@ -56,12 +56,13 @@ lessonsRouter.get('/summary', requireAuth, async (req: Request, res: Response, n
 lessonsRouter.get('/', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { grade, subjectId } = req.query
-    if (!grade) {
-      res.status(400).json({ detail: 'Sinf (grade) ko‘rsatilishi shart' })
+    const parsedGrade = Number(grade)
+    if (!grade || isNaN(parsedGrade)) {
+      res.status(400).json({ detail: 'Sinf (grade) to‘g‘ri ko‘rsatilishi shart' })
       return
     }
 
-    const filter: Record<string, any> = { grade: Number(grade) }
+    const filter: Record<string, any> = { grade: parsedGrade }
     if (subjectId) {
       filter.subjectId = String(subjectId)
     }
