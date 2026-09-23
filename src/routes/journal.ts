@@ -83,7 +83,48 @@ journalRouter.post('/columns', requireAuth, requireRoles('admin', 'teacher'), as
       lessonId: String(lessonId),
     })
 
-    res.status(201).json(column)
+    // Resolve subjectId from the lesson
+    const lesson = await LessonModel.findOne({ id: String(lessonId) }).select('subjectId').lean()
+    const subjectId = lesson?.subjectId || null
+
+    // Initialize all students of this class as 'keldi' with +2 attendance points
+    const students = await StudentModel.find({ classId: klass.id })
+    const createdEntries: any[] = []
+
+    for (const st of students) {
+      await updateJournalCellPoints(
+        st,
+        String(date),
+        null,
+        'keldi',
+        undefined,
+        undefined,
+        subjectId,
+        klass.id
+      )
+
+      const entryId = `j-${st.id}-${date}`
+      const entry = await JournalEntryModel.findOneAndUpdate(
+        { classId: klass.id, studentId: st.id, date: String(date) },
+        {
+          id: entryId,
+          classId: klass.id,
+          studentId: st.id,
+          date: String(date),
+          grade: null,
+          attendance: 'keldi',
+          needsWork: false,
+          note: '',
+        },
+        { upsert: true, new: true }
+      )
+      createdEntries.push(entry)
+    }
+
+    res.status(201).json({
+      ...column.toJSON(),
+      entries: createdEntries,
+    })
   } catch (err) {
     next(err)
   }
