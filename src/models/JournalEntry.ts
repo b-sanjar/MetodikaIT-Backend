@@ -19,7 +19,7 @@ const JournalEntrySchema = new Schema<IJournalEntry>(
     classId: { type: String, required: true, index: true },
     date: { type: String, required: true },
     grade: { type: Number, default: null },
-    attendance: { type: String, enum: ['keldi', 'kelmadi', 'kechikdi'], required: true, default: 'keldi' },
+    attendance: { type: String, enum: ['keldi', 'kelmadi', 'kechikdi', 'sababli', 'sababsiz'], required: true, default: 'keldi' },
     needsWork: { type: Boolean, default: false },
     note: { type: String, default: '' },
   },

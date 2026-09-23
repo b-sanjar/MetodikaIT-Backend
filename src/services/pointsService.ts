@@ -14,6 +14,8 @@ export const ATTENDANCE_POINTS: Record<Attendance, number> = {
   keldi: 2,
   kechikdi: 1,
   kelmadi: 0,
+  sababli: 0,
+  sababsiz: 0,
 }
 
 export function cellPoints(grade: number | null | undefined, attendance: Attendance): number {
@@ -32,6 +34,8 @@ export function reasonForCell(grade: number | null | undefined, attendance: Atte
   if (grade === 2) return 'Darsda «2» baho (-10 ball)'
   if (attendance === 'keldi') return 'Darsga kelgani uchun'
   if (attendance === 'kechikdi') return 'Kechikib kelgani uchun'
+  if (attendance === 'sababli') return 'Sababli kelmadi'
+  if (attendance === 'sababsiz') return 'Sababsiz kelmadi'
   return 'Dars'
 }
 
@@ -44,15 +48,15 @@ export async function checkAutoBadges(student: IStudent, newGrade: number | null
     awardedBadge = 'star'
   }
 
-  // 2. Streak badge: 5 consecutive 'keldi' lessons
+  // 2. Streak badge: 15 consecutive 'keldi' lessons (3x ko'paytirildi)
   if (!student.badges.includes('streak')) {
     const latestEntries = await JournalEntryModel.find({ studentId: student.id })
       .sort({ date: -1 })
-      .limit(5)
+      .limit(15)
       .select('attendance')
       .lean()
 
-    if (latestEntries.length === 5 && latestEntries.every((e) => e.attendance === 'keldi')) {
+    if (latestEntries.length === 15 && latestEntries.every((e) => e.attendance === 'keldi')) {
       student.badges.push('streak')
       if (!awardedBadge) awardedBadge = 'streak'
     }

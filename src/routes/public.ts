@@ -189,7 +189,7 @@ async function buildStudentData(studentIdOrCode: string): Promise<PublicStudentD
 
   const totalLessons = entries.length
   const present = entries.filter((e) => e.attendance === 'keldi').length
-  const absent = entries.filter((e) => e.attendance === 'kelmadi').length
+  const absent = entries.filter((e) => e.attendance === 'kelmadi' || e.attendance === 'sababsiz' || e.attendance === 'sababli').length
   const late = entries.filter((e) => e.attendance === 'kechikdi').length
   const ratePercent = totalLessons > 0 ? Math.round(((present + late * 0.5) / totalLessons) * 100) : 100
 

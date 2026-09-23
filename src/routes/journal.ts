@@ -136,7 +136,7 @@ journalRouter.put('/cell', requireAuth, requireRoles('admin', 'teacher'), async 
     const targetAttendance: Attendance = attendance || existing?.attendance || 'keldi'
     let targetGrade: number | null = null
 
-    if (targetAttendance === 'kelmadi') {
+    if (targetAttendance === 'kelmadi' || targetAttendance === 'sababli' || targetAttendance === 'sababsiz') {
       targetGrade = null
     } else if (grade !== undefined) {
       targetGrade = grade === null ? null : Number(grade)

@@ -140,7 +140,7 @@ export interface QuarterInfoDTO {
   skills: string[]
 }
 
-export type Attendance = 'keldi' | 'kelmadi' | 'kechikdi'
+export type Attendance = 'keldi' | 'kelmadi' | 'kechikdi' | 'sababli' | 'sababsiz'
 
 export interface JournalColumnDTO {
   id: string
