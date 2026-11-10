@@ -3,6 +3,7 @@ import cors from 'cors'
 import express from 'express'
 import rateLimit from 'express-rate-limit'
 import helmet from 'helmet'
+import mongoose from 'mongoose'
 import { errorHandler } from './middleware/error.js'
 import { authRouter, profileRouter } from './routes/auth.js'
 import { badgesRouter } from './routes/badges.js'
@@ -56,7 +57,7 @@ app.use(
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Parent-Code', 'Accept'],
   })
 )
 
@@ -79,25 +80,47 @@ app.use(express.urlencoded({ extended: true, limit: '15mb' }))
 // Rate limiting for login (brute force protection)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30, // max 30 login attempts per 15 min per IP
-  message: { detail: 'Juda ko‘p noto‘g‘ri urinishlar qilindi. Iltimos, 15 daqiqadan so‘ng qayta urinib ko‘ring.' },
+  max: 60, // max 60 login attempts per 15 min per IP
+  message: { detail: 'Juda ko‘p noto‘g‘ri urinishlar qilindi. Iltimos, bir ozdan so‘ng qayta urinib ko‘ring.' },
   standardHeaders: true,
   legacyHeaders: false,
 })
 app.use('/api/auth/login', loginLimiter)
 
-// Health check & root status for Render
+// Health check & root status for Render / monitoring
 app.get('/', (_req, res) => {
+  const isDbReady = mongoose.connection.readyState === 1
   res.json({
     name: 'MetodikaIT Backend API',
     status: 'online',
+    database: isDbReady ? 'connected' : 'connecting',
     version: '1.0.0',
     health: '/api/health',
   })
 })
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', uptime: Math.floor(process.uptime()), time: new Date().toISOString() })
+  const isDbReady = mongoose.connection.readyState === 1
+  res.json({
+    status: 'ok',
+    database: isDbReady ? 'connected' : 'connecting',
+    uptime: Math.floor(process.uptime()),
+    time: new Date().toISOString(),
+  })
+})
+
+// Guard against DB queries while connection is establishing
+app.use((req, res, next) => {
+  if (req.path === '/' || req.path === '/api/health') {
+    return next()
+  }
+  if (req.path.startsWith('/api') && mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      detail: 'Ma’lumotlar bazasiga ulanish o‘rnatilmoqda. Iltimos, bir necha soniyadan so‘ng qayta urinib ko‘ring.',
+      dbStatus: 'connecting',
+    })
+  }
+  next()
 })
 
 // Mount routers

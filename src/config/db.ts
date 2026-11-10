@@ -1,13 +1,6 @@
 import dns from 'node:dns'
 import mongoose from 'mongoose'
 
-// Ensure reliable SRV resolution for MongoDB Atlas
-try {
-  dns.setServers(['8.8.8.8', '1.1.1.1'])
-} catch (_e) {
-  // ignore if restricted
-}
-
 function maskURI(uri: string): string {
   return uri.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@')
 }
@@ -19,7 +12,7 @@ export async function connectDB(): Promise<void> {
     return
   }
 
-  const uri = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/metodika'
+  const uri = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/metodika'
   const isAtlas = uri.startsWith('mongodb+srv://')
 
   if (!isListenerRegistered) {
@@ -35,17 +28,32 @@ export async function connectDB(): Promise<void> {
     isListenerRegistered = true
   }
 
+  const connectOptions: mongoose.ConnectOptions = {
+    maxPoolSize: 10,
+    minPoolSize: 1,
+    serverSelectionTimeoutMS: isAtlas ? 8000 : 4000,
+    connectTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+    autoIndex: process.env.NODE_ENV !== 'production',
+  }
+
   try {
-    await mongoose.connect(uri, {
-      maxPoolSize: 10,
-      minPoolSize: 2,
-      serverSelectionTimeoutMS: isAtlas ? 10000 : 5000,
-      connectTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-      autoIndex: process.env.NODE_ENV !== 'production',
-    })
+    // Attempt 1: Standard OS DNS resolver
+    await mongoose.connect(uri, connectOptions)
     console.log(`[MongoDB] Muvaffaqiyatli ulandi: ${maskURI(uri)}`)
   } catch (err: any) {
+    // If Atlas SRV resolution failed on custom networks, try public DNS fallback
+    if (isAtlas && (err.message?.includes('ENOTFOUND') || err.message?.includes('ESERVFAIL'))) {
+      try {
+        console.log('[MongoDB] Standart DNS orqali ulanish amalga oshmadi. Zaxira DNS (8.8.8.8) orqali urinib ko‘rilmoqda...')
+        dns.setServers(['8.8.8.8', '1.1.1.1'])
+        await mongoose.connect(uri, connectOptions)
+        console.log(`[MongoDB] Muvaffaqiyatli ulandi (zaxira DNS): ${maskURI(uri)}`)
+        return
+      } catch (fallbackErr: any) {
+        console.error(`[MongoDB] Zaxira DNS orqali ham ulanib bo‘lmadi:`, fallbackErr.message)
+      }
+    }
     console.error(`[MongoDB] Ulanishda xatolik (${maskURI(uri)}):`, err.message)
     throw err
   }
