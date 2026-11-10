@@ -95,7 +95,14 @@ studentsRouter.patch('/:id', requireAuth, requireRoles('admin', 'teacher'), asyn
     const { name, classId, points, badges, code } = req.body || {}
 
     if (name !== undefined) student.name = String(name).trim()
-    if (classId !== undefined) student.classId = String(classId)
+    if (classId !== undefined) {
+      const targetKlass = await ClassGroupModel.findOne({ id: String(classId) })
+      if (!targetKlass) {
+        res.status(404).json({ detail: 'Ko‘chirilayotgan sinf topilmadi' })
+        return
+      }
+      student.classId = targetKlass.id
+    }
     if (code !== undefined) {
       student.code = code === 'regenerate' ? await generateUniqueStudentCode() : String(code).trim()
     }

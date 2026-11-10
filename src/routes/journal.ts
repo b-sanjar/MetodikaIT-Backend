@@ -4,6 +4,7 @@ import { ClassGroupModel } from '../models/ClassGroup.js'
 import { JournalColumnModel } from '../models/JournalColumn.js'
 import { JournalEntryModel } from '../models/JournalEntry.js'
 import { LessonModel } from '../models/Lesson.js'
+import { PointsEventModel } from '../models/PointsEvent.js'
 import { StudentModel } from '../models/Student.js'
 import { updateJournalCellPoints } from '../services/pointsService.js'
 import type { Attendance } from '../types/index.js'
@@ -45,7 +46,7 @@ journalRouter.get('/columns', requireAuth, async (req: Request, res: Response, n
 // POST /api/journal/columns (admin; teacher only for own class)
 journalRouter.post('/columns', requireAuth, requireRoles('admin', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { classId, date, lessonId } = (req as any).body || {}
+    const { classId, date, lessonId, quarter } = (req as any).body || {}
     if (!classId || !date || !lessonId) {
       res.status(400).json({ detail: 'Sinf, sana va dars tanlanishi shart' })
       return
@@ -75,17 +76,21 @@ journalRouter.post('/columns', requireAuth, requireRoles('admin', 'teacher'), as
       return
     }
 
+    // Resolve subjectId, quarter, and lessonType from the lesson
+    const lesson = await LessonModel.findOne({ id: String(lessonId) }).select('subjectId quarter lessonType').lean()
+    const subjectId = lesson?.subjectId || null
+    const resolvedQuarter = quarter ? Number(quarter) : (lesson?.quarter || 1)
+    const resolvedLessonType = lesson?.lessonType || 'standard'
+
     const id = `jc-${klass.id}-${date}`
     const column = await JournalColumnModel.create({
       id,
       classId: klass.id,
       date: String(date),
       lessonId: String(lessonId),
+      quarter: resolvedQuarter,
+      lessonType: resolvedLessonType,
     })
-
-    // Resolve subjectId from the lesson
-    const lesson = await LessonModel.findOne({ id: String(lessonId) }).select('subjectId').lean()
-    const subjectId = lesson?.subjectId || null
 
     // Initialize all students of this class as 'keldi' with +2 attendance points
     const students = await StudentModel.find({ classId: klass.id })
@@ -125,6 +130,87 @@ journalRouter.post('/columns', requireAuth, requireRoles('admin', 'teacher'), as
       ...column.toJSON(),
       entries: createdEntries,
     })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// DELETE /api/journal/columns/:id (admin, teacher) — cancels/deletes a conducted lesson column
+journalRouter.delete('/columns/:id', requireAuth, requireRoles('admin', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const columnId = req.params.id
+    const column = await JournalColumnModel.findOne({ id: columnId })
+    if (!column) {
+      res.status(404).json({ detail: 'Jurnal darsi topilmadi' })
+      return
+    }
+
+    const klass = await ClassGroupModel.findOne({ id: column.classId })
+    const user = req.user!
+    const canTeachClass =
+      user.role === 'admin' ||
+      (klass && (klass.teacherId === user.id || klass.tutorId === user.id || (user.classIds || []).includes(klass.id)))
+
+    if (!canTeachClass) {
+      res.status(403).json({ detail: 'Bu sinfdagi darsni bekor qilish huquqingiz yo‘q' })
+      return
+    }
+
+    // Delete associated entries and points events
+    await Promise.all([
+      JournalEntryModel.deleteMany({ classId: column.classId, date: column.date }),
+      PointsEventModel.deleteMany({ classId: column.classId, date: column.date }),
+      JournalColumnModel.deleteOne({ id: column.id }),
+    ])
+
+    res.json({ message: 'Dars muvaffaqiyatli bekor qilindi', id: column.id })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// PATCH /api/journal/columns/:id (admin, teacher) — edits column lessonId or date
+journalRouter.patch('/columns/:id', requireAuth, requireRoles('admin', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const columnId = req.params.id
+    const column = await JournalColumnModel.findOne({ id: columnId })
+    if (!column) {
+      res.status(404).json({ detail: 'Jurnal darsi topilmadi' })
+      return
+    }
+
+    const klass = await ClassGroupModel.findOne({ id: column.classId })
+    const user = req.user!
+    const canTeachClass =
+      user.role === 'admin' ||
+      (klass && (klass.teacherId === user.id || klass.tutorId === user.id || (user.classIds || []).includes(klass.id)))
+
+    if (!canTeachClass) {
+      res.status(403).json({ detail: 'Bu darsni tahrirlash huquqingiz yo‘q' })
+      return
+    }
+
+    const { lessonId, date, quarter, lessonType } = req.body || {}
+    if (lessonId) {
+      column.lessonId = String(lessonId)
+      const lesson = await LessonModel.findOne({ id: String(lessonId) }).select('quarter lessonType').lean()
+      if (lesson) {
+        column.quarter = lesson.quarter
+        column.lessonType = lesson.lessonType || 'standard'
+      }
+    }
+    if (date) {
+      column.date = String(date)
+    }
+    if (quarter) {
+      column.quarter = Number(quarter)
+    }
+    if (lessonType) {
+      column.lessonType = String(lessonType)
+    }
+
+    await column.save()
+    res.json(column)
   } catch (err) {
     next(err)
   }

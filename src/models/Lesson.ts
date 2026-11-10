@@ -1,5 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose'
-import type { LessonStatus } from '../types/index.js'
+import type { LessonStatus, LessonType } from '../types/index.js'
 
 export interface ILesson extends Document {
   id: string
@@ -18,6 +18,7 @@ export interface ILesson extends Document {
   videoUrl: string
   durationMin: number
   status: LessonStatus
+  lessonType: LessonType
   subjectId?: string | null
   subjectName?: string
 }
@@ -40,6 +41,7 @@ const LessonSchema = new Schema<ILesson>(
     videoUrl: { type: String, default: '' },
     durationMin: { type: Number, default: 45 },
     status: { type: String, enum: ['ready', 'draft'], default: 'draft' },
+    lessonType: { type: String, enum: ['standard', 'control', 'practical'], default: 'standard', index: true },
     subjectId: { type: String, default: null, index: true },
     subjectName: { type: String, default: '' },
   },

@@ -112,6 +112,7 @@ export interface PublicLeaderboardEntryDTO {
 }
 
 export type LessonStatus = 'ready' | 'draft'
+export type LessonType = 'standard' | 'control' | 'practical'
 
 export interface LessonDTO {
   id: string
@@ -130,6 +131,7 @@ export interface LessonDTO {
   videoUrl: string
   durationMin: number
   status: LessonStatus
+  lessonType?: LessonType
   subjectId?: string | null
   subjectName?: string
 }
@@ -147,6 +149,8 @@ export interface JournalColumnDTO {
   classId: string
   date: string
   lessonId: string
+  quarter?: number
+  lessonType?: LessonType
 }
 
 export interface JournalEntryDTO {

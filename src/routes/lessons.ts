@@ -94,7 +94,7 @@ lessonsRouter.get('/:id', requireAuth, async (req: Request, res: Response, next:
 // POST /api/lessons (admin, teacher)
 lessonsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { grade, quarter, title, durationMin, subjectId } = (req as any).body || {}
+    const { grade, quarter, title, durationMin, subjectId, lessonType } = (req as any).body || {}
 
     const parsedGrade = Number(grade)
     const parsedQuarter = Number(quarter)
@@ -143,6 +143,8 @@ lessonsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (re
 
     const id = `l-${parsedGrade}-${parsedQuarter}-${nextOrder}-${Date.now().toString(36)}`
 
+    const validLessonType = lessonType === 'control' || lessonType === 'practical' ? lessonType : 'standard'
+
     const newLesson = await LessonModel.create({
       id,
       grade: parsedGrade,
@@ -160,6 +162,7 @@ lessonsRouter.post('/', requireAuth, requireRoles('admin', 'teacher'), async (re
       videoUrl: '',
       durationMin: Number(durationMin) || 45,
       status: 'draft',
+      lessonType: validLessonType,
       subjectId: resolvedSubjectId,
       subjectName: resolvedSubjectName,
     })
@@ -191,6 +194,7 @@ lessonsRouter.patch('/:id', requireAuth, requireRoles('admin', 'teacher'), async
       status,
       videoUrl,
       subjectId,
+      lessonType,
     } = req.body || {}
 
     if (title !== undefined) lesson.title = String(title).trim()
@@ -202,6 +206,9 @@ lessonsRouter.patch('/:id', requireAuth, requireRoles('admin', 'teacher'), async
     if (Array.isArray(outcomes)) lesson.outcomes = outcomes
     if (durationMin !== undefined) lesson.durationMin = Number(durationMin) || 45
     if (status !== undefined && (status === 'ready' || status === 'draft')) lesson.status = status
+    if (lessonType !== undefined && ['standard', 'control', 'practical'].includes(lessonType)) {
+      lesson.lessonType = lessonType as any
+    }
     if (videoUrl !== undefined) lesson.videoUrl = String(videoUrl)
 
     if (subjectId !== undefined) {

@@ -5,6 +5,8 @@ export interface IJournalColumn extends Document {
   classId: string
   date: string
   lessonId: string
+  quarter?: number
+  lessonType?: string
 }
 
 const JournalColumnSchema = new Schema<IJournalColumn>(
@@ -13,6 +15,8 @@ const JournalColumnSchema = new Schema<IJournalColumn>(
     classId: { type: String, required: true, index: true },
     date: { type: String, required: true },
     lessonId: { type: String, required: true },
+    quarter: { type: Number, min: 1, max: 4, default: 1 },
+    lessonType: { type: String, default: 'standard' },
   },
   {
     timestamps: true,
