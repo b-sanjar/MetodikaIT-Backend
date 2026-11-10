@@ -19,7 +19,7 @@ export async function connectDB(): Promise<void> {
     return
   }
 
-  const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/metodika'
+  const uri = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/metodika'
   const isAtlas = uri.startsWith('mongodb+srv://')
 
   if (!isListenerRegistered) {

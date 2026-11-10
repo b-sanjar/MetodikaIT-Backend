@@ -30,11 +30,33 @@ app.use(
 )
 
 // CORS configuration
-const allowedOrigin = process.env.CLIENT_URL || true
+const rawClientUrl = process.env.CLIENT_URL || ''
+const allowedOrigins = rawClientUrl
+  ? rawClientUrl.split(',').map((s) => s.trim().replace(/\/+$/, ''))
+  : ['*']
+
 app.use(
   cors({
-    origin: allowedOrigin,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true)
+      if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        return callback(null, true)
+      }
+      // Automatically allow Vercel domains, Render domains, and localhost
+      if (
+        origin.endsWith('.vercel.app') ||
+        origin.endsWith('.onrender.com') ||
+        origin.startsWith('http://localhost:') ||
+        origin.startsWith('http://127.0.0.1:')
+      ) {
+        return callback(null, true)
+      }
+      return callback(null, true)
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   })
 )
 
@@ -64,7 +86,16 @@ const loginLimiter = rateLimit({
 })
 app.use('/api/auth/login', loginLimiter)
 
-// Health check
+// Health check & root status for Render
+app.get('/', (_req, res) => {
+  res.json({
+    name: 'MetodikaIT Backend API',
+    status: 'online',
+    version: '1.0.0',
+    health: '/api/health',
+  })
+})
+
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', uptime: Math.floor(process.uptime()), time: new Date().toISOString() })
 })
